@@ -4,8 +4,8 @@ from sklearn.model_selection import train_test_split
 
 def segment_customers(df):
     features = df[["age", "balance", "campaign", "duration"]]
-    model = KMeans(n_clusters=3, random_state=42)
-    df["segment"] = model.fit_predict(features)
+    kmeans = KMeans(n_clusters=3, random_state=42)
+    df["segment"] = kmeans.fit_predict(features)
     return df
 
 def predict_risk(df):
