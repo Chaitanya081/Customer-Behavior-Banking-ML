@@ -6,7 +6,7 @@ from sklearn.preprocessing import LabelEncoder
 def load_data():
     return pd.read_csv("data/bank_marketing.csv", sep=";")
 
-def encode(df):
+def encode_data(df):
     le = LabelEncoder()
     for col in df.select_dtypes(include="object"):
         df[col] = le.fit_transform(df[col])
