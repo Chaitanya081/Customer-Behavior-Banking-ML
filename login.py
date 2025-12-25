@@ -1,7 +1,14 @@
 import streamlit as st
+import os
 
 def login_page():
-    st.image("images/login_banner.png", use_column_width=True)
+    img_path = "images/loginimage.jpg"   # ✅ correct file name
+
+    if os.path.exists(img_path):
+        st.image(img_path, use_column_width=True)
+    else:
+        st.warning("Login image not found")
+
     st.markdown("## 🔐 AI Banking Platform Login")
 
     username = st.text_input("Username")
