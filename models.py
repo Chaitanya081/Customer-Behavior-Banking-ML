@@ -19,8 +19,7 @@ def predict_risk(df):
     model = LogisticRegression(max_iter=1000)
     model.fit(X_train, y_train)
 
-    df["risk_score"] = model.predict_proba(X)[:,1]
-
+    df["risk_score"] = model.predict_proba(X)[:, 1]
     df["risk"] = df["risk_score"].apply(
         lambda x: "High" if x > 0.7 else "Medium" if x > 0.4 else "Low"
     )
