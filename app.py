@@ -10,11 +10,11 @@ from pathlib import Path
 st.set_page_config(
     page_title="AI Banking Platform",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 # -------------------------------------------------
-# SESSION STATE INIT (FIXES ALL ERRORS)
+# SESSION STATE
 # -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -26,67 +26,59 @@ if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
 # -------------------------------------------------
-# LOAD IMAGE SAFELY (BASE64)
+# LOAD IMAGE AS BASE64 (CRITICAL)
 # -------------------------------------------------
-def load_bg_image(image_path):
-    if not Path(image_path).exists():
+def load_image(path):
+    if not Path(path).exists():
         return ""
-    with open(image_path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
-bg_image = load_bg_image("images/loginimage.jpg")
+bg_image = load_image("images/loginimage.jpg")
 
 # -------------------------------------------------
-# CSS WITH IMAGE + TEXT OVERLAY (WORKING)
+# FULL PAGE BACKGROUND CSS
 # -------------------------------------------------
 st.markdown(
     f"""
     <style>
-    .hero {{
-        position: relative;
-        width: 100%;
-        height: 320px;
+    /* MAIN APP BACKGROUND */
+    .stApp {{
         background-image: url("data:image/jpg;base64,{bg_image}");
         background-size: cover;
         background-position: center;
-        border-radius: 12px;
-        margin-bottom: 30px;
+        background-repeat: no-repeat;
     }}
 
-    .hero::after {{
+    /* DARK OVERLAY */
+    .stApp::before {{
         content: "";
-        position: absolute;
+        position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.45);
-        border-radius: 12px;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: -1;
     }}
 
-    .hero-text {{
-        position: absolute;
-        bottom: 35px;
-        left: 45px;
-        color: white;
-        z-index: 2;
+    /* LOGIN CARD */
+    .login-box {{
+        max-width: 450px;
+        margin-top: 80px;
+        padding: 35px;
+        background: rgba(15, 23, 42, 0.92);
+        border-radius: 14px;
+        box-shadow: 0 20px 50px rgba(0,0,0,0.6);
     }}
 
-    .hero-text h1 {{
-        font-size: 42px;
-        margin: 0;
+    .login-title {{
+        font-size: 30px;
         font-weight: 700;
+        color: white;
     }}
 
-    .hero-text p {{
-        font-size: 16px;
-        opacity: 0.9;
-        margin-top: 5px;
-    }}
-
-    .card {{
-        padding: 22px;
-        background-color: #111827;
-        border-radius: 12px;
-        text-align: center;
+    .login-sub {{
+        color: #cbd5e1;
+        margin-bottom: 25px;
+        font-size: 14px;
     }}
     </style>
     """,
@@ -94,43 +86,47 @@ st.markdown(
 )
 
 # -------------------------------------------------
-# LOGIN / REGISTER PAGE
+# LOGIN PAGE
 # -------------------------------------------------
 def login_page():
 
-    st.markdown(
-        """
-        <div class="hero">
-            <div class="hero-text">
-                <h1>AI Banking Platform</h1>
-                <p>Customer Intelligence & Risk Prediction System</p>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    col1, col2 = st.columns([1, 2])
 
-    option = st.radio("Select Option", ["Login", "Register"])
+    with col1:
+        st.markdown(
+            """
+            <div class="login-box">
+                <div class="login-title">🏦 AI Banking Platform</div>
+                <div class="login-sub">
+                    Customer Intelligence & Risk Prediction System
+                </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+        option = st.radio("Select Option", ["Login", "Register"])
 
-    if option == "Register":
-        if st.button("Register"):
-            if email in st.session_state.users:
-                st.error("User already exists")
-            else:
-                st.session_state.users[email] = password
-                st.success("Registration successful. Please login.")
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
 
-    if option == "Login":
-        if st.button("Login"):
-            if email in st.session_state.users and st.session_state.users[email] == password:
-                st.session_state.logged_in = True
-                st.session_state.current_user = email
-                st.rerun()
-            else:
-                st.error("Invalid credentials")
+        if option == "Register":
+            if st.button("Register"):
+                if email in st.session_state.users:
+                    st.error("User already exists")
+                else:
+                    st.session_state.users[email] = password
+                    st.success("Registration successful. Please login.")
+
+        if option == "Login":
+            if st.button("Login"):
+                if email in st.session_state.users and st.session_state.users[email] == password:
+                    st.session_state.logged_in = True
+                    st.session_state.current_user = email
+                    st.rerun()
+                else:
+                    st.error("Invalid credentials")
+
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # DASHBOARD
@@ -146,22 +142,18 @@ def dashboard():
         ["Dashboard", "Customer Prediction", "Add Customer"]
     )
 
-    st.sidebar.markdown("---")
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.session_state.current_user = None
         st.rerun()
 
-    # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
         st.title("🏦 AI Banking Intelligence Dashboard")
 
         c1, c2, c3 = st.columns(3)
-        c1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
-        c2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
-        c3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
-
-        st.markdown("### 📊 Customer Insights")
+        c1.metric("Total Customers", "45,211")
+        c2.metric("High Risk", "12%")
+        c3.metric("Retention Rate", "88%")
 
         df = pd.DataFrame({
             "Segment": ["Low Risk", "Medium Risk", "High Risk", "VIP"],
@@ -171,31 +163,27 @@ def dashboard():
         fig = px.bar(df, x="Segment", y="Customers", color="Segment")
         st.plotly_chart(fig, use_container_width=True)
 
-    # ---------------- PREDICTION ----------------
     if menu == "Customer Prediction":
         st.title("🔮 Customer Risk Prediction")
 
-        age = st.slider("Age", 18, 70)
         balance = st.number_input("Account Balance", 0)
         tx = st.slider("Monthly Transactions", 1, 100)
 
-        if st.button("Predict Risk"):
+        if st.button("Predict"):
             risk = "High Risk" if balance < 5000 and tx < 10 else "Low Risk"
-            st.success(f"Predicted Risk Level: **{risk}**")
+            st.success(f"Predicted Risk: {risk}")
 
-    # ---------------- ADD CUSTOMER ----------------
     if menu == "Add Customer":
-        st.title("➕ Add New Customer")
+        st.title("➕ Add Customer")
 
         name = st.text_input("Customer Name")
-        age = st.number_input("Age", 18, 80)
         balance = st.number_input("Initial Balance", 0)
 
-        if st.button("Add Customer"):
-            st.success(f"Customer **{name}** added successfully!")
+        if st.button("Add"):
+            st.success(f"Customer {name} added!")
 
 # -------------------------------------------------
-# APP ROUTER
+# ROUTER
 # -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
