@@ -7,7 +7,7 @@ import base64
 # PAGE CONFIG
 # -------------------------------------------------
 st.set_page_config(
-    page_title="AI Banking Platform",
+    page_title="Customer Analysis Platform",
     layout="wide",
     initial_sidebar_state="expanded"
 )
@@ -23,6 +23,9 @@ if "logged_in" not in st.session_state:
 
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
+
+if "customers" not in st.session_state:
+    st.session_state.customers = []
 
 # -------------------------------------------------
 # BACKGROUND IMAGE (BASE64 – ALWAYS LOADS)
@@ -51,33 +54,29 @@ st.markdown(
         z-index: -1;
     }}
 
-    /* LOGIN BOX */
     .login-box {{
         width: 420px;
-        min-height: 320px;
-        margin: 90px auto;
-        padding: 30px;
+        min-height: 300px;
+        margin: 100px auto;
+        padding: 28px;
         background: rgba(15,23,42,0.96);
         border-radius: 16px;
         box-shadow: 0 25px 60px rgba(0,0,0,0.75);
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
     }}
 
     .login-title {{
-        font-size: 34px;
+        font-size: 32px;
         font-weight: 800;
         color: white;
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 6px;
     }}
 
     .login-sub {{
         font-size: 14px;
         color: #cbd5e1;
         text-align: center;
-        margin-bottom: 28px;
+        margin-bottom: 22px;
     }}
 
     .card {{
@@ -95,7 +94,6 @@ st.markdown(
 # LOGIN / REGISTER PAGE
 # -------------------------------------------------
 def login_page():
-
     st.markdown(
         """
         <div class="login-box">
@@ -108,6 +106,7 @@ def login_page():
     )
 
     option = st.radio("Select Option", ["Login", "Register"])
+
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
@@ -136,13 +135,14 @@ def login_page():
 # -------------------------------------------------
 def dashboard():
 
+    # Sidebar
     st.sidebar.markdown("### 👤 User")
     st.sidebar.success("Logged in")
     st.sidebar.write(st.session_state.current_user)
 
     menu = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Customer Prediction", "Add Customer"]
+        ["Dashboard", "Add Customer", "Customer Prediction", "View Customers"]
     )
 
     st.sidebar.markdown("---")
@@ -151,26 +151,44 @@ def dashboard():
         st.session_state.current_user = None
         st.rerun()
 
-    # ---------------- DASHBOARD HOME ----------------
+    # -------------------------------------------------
+    # DASHBOARD HOME
+    # -------------------------------------------------
     if menu == "Dashboard":
-        st.title("🏦 AI Banking Intelligence Dashboard")
+        st.title("📊 Customer Intelligence Dashboard")
 
         col1, col2, col3 = st.columns(3)
-        col1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
+        col1.markdown("<div class='card'><h3>Total Customers</h3><h2>{}</h2></div>".format(len(st.session_state.customers)), unsafe_allow_html=True)
         col2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
         col3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
 
-        st.markdown("### 📊 Customer Insights")
+        if st.session_state.customers:
+            df = pd.DataFrame(st.session_state.customers)
+            fig = px.histogram(df, x="Age", title="Customer Age Distribution")
+            st.plotly_chart(fig, use_container_width=True)
 
-        df = pd.DataFrame({
-            "Segment": ["Low Risk", "Medium Risk", "High Risk", "VIP"],
-            "Customers": [20000, 15000, 7000, 3000]
-        })
+    # -------------------------------------------------
+    # ADD CUSTOMER
+    # -------------------------------------------------
+    if menu == "Add Customer":
+        st.title("➕ Add New Customer")
 
-        fig = px.bar(df, x="Segment", y="Customers", color="Segment")
-        st.plotly_chart(fig, use_container_width=True)
+        name = st.text_input("Customer Name")
+        age = st.number_input("Age", 18, 80)
+        balance = st.number_input("Initial Balance", 0)
 
-    # ---------------- PREDICTION ----------------
+        if st.button("Add Customer"):
+            customer = {
+                "Name": name,
+                "Age": age,
+                "Balance": balance
+            }
+            st.session_state.customers.append(customer)
+            st.success(f"Customer **{name}** added successfully!")
+
+    # -------------------------------------------------
+    # CUSTOMER PREDICTION
+    # -------------------------------------------------
     if menu == "Customer Prediction":
         st.title("🔮 Customer Risk Prediction")
 
@@ -182,16 +200,27 @@ def dashboard():
             risk = "High Risk" if balance < 5000 and transactions < 10 else "Low Risk"
             st.success(f"Predicted Risk Level: **{risk}**")
 
-    # ---------------- ADD CUSTOMER ----------------
-    if menu == "Add Customer":
-        st.title("➕ Add New Customer")
+    # -------------------------------------------------
+    # VIEW CUSTOMERS
+    # -------------------------------------------------
+    if menu == "View Customers":
+        st.title("👥 Existing Customers")
 
-        name = st.text_input("Customer Name")
-        age = st.number_input("Age", 18, 80)
-        balance = st.number_input("Initial Balance", 0)
+        if not st.session_state.customers:
+            st.warning("No customers added yet.")
+        else:
+            df = pd.DataFrame(st.session_state.customers)
+            st.dataframe(df, use_container_width=True)
 
-        if st.button("Add Customer"):
-            st.success(f"Customer **{name}** added successfully!")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                fig1 = px.pie(df, names="Name", values="Balance", title="Balance Distribution")
+                st.plotly_chart(fig1, use_container_width=True)
+
+            with col2:
+                fig2 = px.histogram(df, x="Age", nbins=10, title="Age Frequency")
+                st.plotly_chart(fig2, use_container_width=True)
 
 # -------------------------------------------------
 # APP ROUTER
