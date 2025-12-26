@@ -1,28 +1,27 @@
 import streamlit as st
+import os
 import pandas as pd
-import matplotlib.pyplot as plt
-import seaborn as sns
 
 from auth import login_user, register_user
-from models import predict_risk
-from styles import load_styles
-from utils import get_image_path
+from styles import apply_login_style
+from models import simple_risk_prediction
+from utils import show_graphs
 
+# ---------------- CONFIG ----------------
 st.set_page_config(page_title="AI Banking Platform", layout="wide")
-load_styles()
 
-# SESSION STATE
+IMAGE_PATH = os.path.join("images", "loginimage.jpg")
+
+# ---------------- SESSION ----------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
-if "user" not in st.session_state:
-    st.session_state.user = ""
 
-# ---------- LOGIN / REGISTER ----------
+# ---------------- LOGIN PAGE ----------------
 if not st.session_state.logged_in:
+    apply_login_style(IMAGE_PATH)
 
-    st.image(get_image_path("loginimage.jpg"), use_container_width=True)
-
-    st.title("🔐 AI Banking Platform")
+    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+    st.markdown("## 🔐 AI Banking Platform")
 
     option = st.radio("Select Option", ["Login", "Register"])
 
@@ -32,7 +31,7 @@ if not st.session_state.logged_in:
     if option == "Register":
         if st.button("Register"):
             if register_user(email, password):
-                st.success("Registration successful! Please login.")
+                st.success("Registered successfully! Now login.")
             else:
                 st.error("User already exists.")
 
@@ -41,50 +40,32 @@ if not st.session_state.logged_in:
             if login_user(email, password):
                 st.session_state.logged_in = True
                 st.session_state.user = email
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Invalid credentials")
 
-# ---------- DASHBOARD ----------
-else:
-    st.sidebar.success(f"Logged in as {st.session_state.user}")
+    st.markdown("</div>", unsafe_allow_html=True)
+    st.stop()
 
-    if st.sidebar.button("Logout"):
-        st.session_state.logged_in = False
-        st.experimental_rerun()
+# ---------------- DASHBOARD ----------------
+st.sidebar.success(f"Logged in as {st.session_state.user}")
 
-    st.title("🏦 AI Banking Intelligence Dashboard")
+st.title("🏦 AI Banking Intelligence Dashboard")
 
-    df = pd.read_csv("data/bank_marketing.csv")
+df = pd.read_csv("data/bank_marketing.csv")
 
-    # ----- GRAPHS -----
-    col1, col2 = st.columns(2)
+# --------- GRAPHS ----------
+fig1, fig2 = show_graphs(df)
+st.pyplot(fig1)
+st.pyplot(fig2)
 
-    with col1:
-        st.subheader("📊 Subscription Outcome")
-        fig, ax = plt.subplots()
-        df["y"].value_counts().plot(kind="bar", ax=ax)
-        st.pyplot(fig)
+# --------- CUSTOM PREDICTION ----------
+st.subheader("🔍 Predict Customer Risk")
 
-    with col2:
-        st.subheader("🥧 Contact Type Distribution")
-        fig2, ax2 = plt.subplots()
-        df["contact"].value_counts().plot(kind="pie", autopct="%1.1f%%", ax=ax2)
-        st.pyplot(fig2)
+age = st.number_input("Age", 18, 100)
+balance = st.number_input("Account Balance")
+duration = st.number_input("Call Duration")
 
-    # ----- ML PREDICTION -----
-    st.subheader("🤖 Risk Prediction (External User)")
-
-    if st.button("Run Risk Prediction"):
-        risk = predict_risk(df)
-        st.success(f"Predicted Risk Class: {risk}")
-
-    # ----- MANUAL INPUT -----
-    st.subheader("📝 Manual Customer Prediction")
-
-    age = st.number_input("Age", 18, 100)
-    balance = st.number_input("Balance")
-    campaign = st.number_input("Campaign Calls", 1, 50)
-
-    if st.button("Predict Manually"):
-        st.info("Manual prediction demo (extendable for real-time use)")
+if st.button("Predict Risk"):
+    result = simple_risk_prediction(age, balance, duration)
+    st.success(f"Predicted Risk Level: **{result}**")
