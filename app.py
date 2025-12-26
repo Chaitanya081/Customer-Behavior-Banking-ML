@@ -1,180 +1,107 @@
 import streamlit as st
+import base64
 import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import plotly.express as px
 
-# ---------------- PAGE CONFIG ----------------
-st.set_page_config(
-    page_title="AI Banking Platform",
-    page_icon="🏦",
-    layout="wide"
-)
+from auth import init_auth, login_user, register_user, logout_user
+from models import customer_metrics, bar_chart_data, predict_customer
 
-# ---------------- SESSION STATE INIT ----------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+st.set_page_config(page_title="AI Banking Platform", layout="wide")
 
-if "users" not in st.session_state:
-    st.session_state.users = {"admin@gmail.com": "admin"}
+# ---------- BACKGROUND IMAGE ----------
+def set_background(image_file):
+    with open(image_file, "rb") as img:
+        encoded = base64.b64encode(img.read()).decode()
+    st.markdown(
+        f"""
+        <style>
+        .stApp {{
+            background-image: url("data:image/jpg;base64,{encoded}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-if "customers" not in st.session_state:
-    st.session_state.customers = pd.DataFrame({
-        "Name": ["Rahul", "Anita", "Kiran"],
-        "Age": [34, 29, 41],
-        "Balance": [50000, 32000, 88000],
-        "Loan": ["No", "Yes", "Yes"]
-    })
+# ---------- INIT ----------
+init_auth()
 
-# ---------------- AUTH FUNCTIONS ----------------
-def login_user(email, password):
-    return email in st.session_state.users and st.session_state.users[email] == password
-
-def register_user(email, password):
-    if email in st.session_state.users:
-        return False
-    st.session_state.users[email] = password
-    return True
-
-# ---------------- LOGIN PAGE ----------------
+# ---------- LOGIN PAGE ----------
 def login_page():
-    st.title("🏦 AI Banking Platform")
+    set_background("images/loginimage.jpg")
 
+    st.markdown("## 🏦 AI Banking Platform")
     option = st.radio("Select Option", ["Login", "Register"])
 
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
+    if option == "Register":
+        if st.button("Register"):
+            if register_user(email, password):
+                st.success("Registered successfully. Please login.")
+            else:
+                st.error("User already exists")
+
     if option == "Login":
         if st.button("Login"):
             if login_user(email, password):
-                st.session_state.logged_in = True
-                st.success("Login Successful")
+                st.success("Login successful")
                 st.rerun()
             else:
                 st.error("Invalid credentials")
 
-    else:
-        if st.button("Register"):
-            if register_user(email, password):
-                st.success("Registration successful. Please login.")
-            else:
-                st.error("User already exists")
-
-# ---------------- DASHBOARD ----------------
+# ---------- DASHBOARD ----------
 def dashboard():
-    st.title("🏦 AI Banking Intelligence Dashboard")
+    st.sidebar.markdown("### 👤 User")
+    st.sidebar.success("Logged in")
+    st.sidebar.markdown(f"**{st.session_state.current_user}**")
 
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total Customers", len(st.session_state.customers))
-    c2.metric("Active Accounts", "39,842")
-    c3.metric("High Risk", "12%")
-    c4.metric("Retention Rate", "88%")
+    st.sidebar.markdown("---")
+    menu = st.sidebar.radio(
+        "Navigation",
+        ["Dashboard", "Customer Prediction", "Analytics"]
+    )
 
-    st.subheader("📊 Customer Risk Distribution")
-    risk_data = {"Low": 28, "Medium": 12, "High": 5}
-    st.bar_chart(risk_data)
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🚪 Logout"):
+        logout_user()
+        st.rerun()
 
-# ---------------- CUSTOMER MANAGEMENT ----------------
-def customer_management():
-    st.title("👥 Customer Management")
+    metrics = customer_metrics()
 
-    col1, col2 = st.columns(2)
+    st.title("🏛️ AI Banking Intelligence Dashboard")
 
-    with col1:
-        st.subheader("➕ Add New Customer")
-        name = st.text_input("Customer Name")
-        age = st.number_input("Age", 18, 80)
-        balance = st.number_input("Account Balance", value=10000)
-        loan = st.selectbox("Loan Taken", ["Yes", "No"])
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Customers", metrics["total_customers"])
+    col2.metric("High Risk", f'{metrics["high_risk"]}%')
+    col3.metric("Retention Rate", f'{metrics["retention"]}%')
 
-        if st.button("Add Customer"):
-            new_customer = pd.DataFrame([[name, age, balance, loan]],
-                                        columns=["Name", "Age", "Balance", "Loan"])
-            st.session_state.customers = pd.concat(
-                [st.session_state.customers, new_customer],
-                ignore_index=True
-            )
-            st.success("Customer added successfully")
+    if menu == "Dashboard":
+        df = bar_chart_data()
+        fig = px.bar(df, x="Category", y="Customers", title="Customer Risk Distribution")
+        st.plotly_chart(fig, use_container_width=True)
 
-    with col2:
-        st.subheader("📋 Existing Customers")
-        st.dataframe(st.session_state.customers, use_container_width=True)
+    if menu == "Customer Prediction":
+        st.subheader("🔍 Predict Customer Risk")
 
-# ---------------- RISK PREDICTION ----------------
-def risk_prediction():
-    st.title("🔮 Risk Prediction")
+        age = st.number_input("Age", 18, 100)
+        balance = st.number_input("Account Balance")
+        campaign = st.number_input("Campaign Contacts", 0, 50)
 
-    st.subheader("Enter Customer Details")
+        if st.button("Predict Risk"):
+            result = predict_customer(age, balance, campaign)
+            st.success(f"Predicted Risk Level: **{result}**")
 
-    age = st.slider("Age", 18, 80, 30)
-    balance = st.number_input("Account Balance", 0, 200000, 25000)
-    loan = st.selectbox("Loan Taken", ["Yes", "No"])
+    if menu == "Analytics":
+        st.subheader("📊 Analytics Overview")
+        st.info("Advanced analytics module ready for future expansion")
 
-    if st.button("Predict Risk"):
-        if balance < 20000 and loan == "Yes":
-            st.error("⚠️ High Risk Customer")
-        elif balance < 50000:
-            st.warning("⚠️ Medium Risk Customer")
-        else:
-            st.success("✅ Low Risk Customer")
-
-# ---------------- REPORTS ----------------
-def reports():
-    st.title("📈 Banking Reports")
-
-    st.subheader("Customer Growth")
-
-    growth = pd.DataFrame({
-        "Month": ["Jan", "Feb", "Mar", "Apr", "May"],
-        "Customers": [1000, 1500, 2200, 3000, 4200]
-    })
-
-    st.line_chart(growth.set_index("Month"))
-
-    st.info("Customer base is growing steadily 📈")
-
-# ---------------- MAIN APP ----------------
-def main_app():
-    with st.sidebar:
-        st.markdown("### 🏦 AI Banking Platform")
-
-        st.markdown(
-            """
-            <div style='background:#1f7a4d;padding:10px;border-radius:8px;
-            color:white;text-align:center;margin-bottom:15px;'>
-            ✅ Logged In
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-        menu = st.radio(
-            "Navigation",
-            [
-                "📊 Dashboard",
-                "👥 Customer Management",
-                "🔮 Risk Prediction",
-                "📈 Reports",
-            ],
-        )
-
-        st.markdown("<br><br><br>", unsafe_allow_html=True)
-
-        if st.button("🚪 Sign Out"):
-            st.session_state.logged_in = False
-            st.rerun()
-
-    if menu == "📊 Dashboard":
-        dashboard()
-    elif menu == "👥 Customer Management":
-        customer_management()
-    elif menu == "🔮 Risk Prediction":
-        risk_prediction()
-    elif menu == "📈 Reports":
-        reports()
-
-# ---------------- RUN ----------------
+# ---------- ROUTING ----------
 if not st.session_state.logged_in:
     login_page()
 else:
-    main_app()
+    dashboard()
