@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import os
-import base64
 
 USER_FILE = "data/users.csv"
 
@@ -11,48 +10,33 @@ def init_user_db():
     if not os.path.exists(USER_FILE):
         pd.DataFrame(columns=["email", "password"]).to_csv(USER_FILE, index=False)
 
-def set_background():
-    image_path = "images/loginimage.jpg"
+def login_user():
+    init_user_db()
 
-    if not os.path.exists(image_path):
-        st.error("❌ loginimage.jpg not found inside images folder")
-        return
+    # ✅ THIS ALWAYS WORKS
+    st.image("images/loginimage.jpg", use_column_width=True)
 
-    with open(image_path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode()
+    st.markdown("## 🔐 Login")
 
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
+    email = st.text_input("Email")
+    password = st.text_input("Password", type="password")
 
-        .login-box {{
-            background: rgba(0, 0, 0, 0.65);
-            padding: 30px;
-            border-radius: 15px;
-            width: 400px;
-            margin: auto;
-            margin-top: 120px;
-        }}
+    if st.button("Login"):
+        df = pd.read_csv(USER_FILE)
+        valid = ((df["email"] == email) & (df["password"] == password)).any()
 
-        label, h2 {{
-            color: white !important;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+        if valid:
+            st.session_state.page = "dashboard"
+            st.session_state.user_email = email
+            st.rerun()
+        else:
+            st.error("Invalid email or password")
 
 def register_user():
     init_user_db()
-    set_background()
 
-    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
+    st.image("images/loginimage.jpg", use_column_width=True)
+
     st.markdown("## 📝 Register")
 
     email = st.text_input("Email")
@@ -66,27 +50,3 @@ def register_user():
             df.loc[len(df)] = [email, password]
             df.to_csv(USER_FILE, index=False)
             st.success("Registration successful. Please login.")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-def login_user():
-    init_user_db()
-    set_background()
-
-    st.markdown("<div class='login-box'>", unsafe_allow_html=True)
-    st.markdown("## 🔐 Login")
-
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-
-    if st.button("Login"):
-        df = pd.read_csv(USER_FILE)
-        valid = ((df["email"] == email) & (df["password"] == password)).any()
-        if valid:
-            st.session_state.page = "dashboard"
-            st.session_state.user_email = email
-            st.rerun()
-        else:
-            st.error("Invalid email or password")
-
-    st.markdown("</div>", unsafe_allow_html=True)
