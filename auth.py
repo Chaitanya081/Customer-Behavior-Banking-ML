@@ -1,6 +1,7 @@
 import streamlit as st
 import hashlib
 
+# ✅ ALWAYS initialize users
 if "users" not in st.session_state:
     st.session_state.users = {}
 
