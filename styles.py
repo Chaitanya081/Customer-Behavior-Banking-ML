@@ -1,11 +1,9 @@
 import streamlit as st
 
-def apply_style():
+def load_styles():
     st.markdown("""
-    <style>
-    .stApp {
-        background: linear-gradient(180deg, #061a2e, #081f33);
-        color: white;
-    }
-    </style>
+        <style>
+        body { background-color: #0e1117; }
+        h1, h2, h3 { color: #00c6ff; }
+        </style>
     """, unsafe_allow_html=True)
