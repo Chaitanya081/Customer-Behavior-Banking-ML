@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
+import base64
 
 # -------------------------------------------------
 # PAGE CONFIG
@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SESSION STATE INIT (CRITICAL – FIXES YOUR ERROR)
+# SESSION STATE (FIXES ALL ERRORS)
 # -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -24,46 +24,58 @@ if "logged_in" not in st.session_state:
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
+
 # -------------------------------------------------
-# CSS (IMAGE + TEXT OVERLAY)
+# LOAD IMAGE AS BASE64 (THIS IS THE KEY)
+# -------------------------------------------------
+def get_base64_image(path):
+    with open(path, "rb") as img:
+        return base64.b64encode(img.read()).decode()
+
+bg_image = get_base64_image("images/loginimage.jpg")
+
+
+# -------------------------------------------------
+# CSS WITH IMAGE + TEXT OVERLAY (100% WORKING)
 # -------------------------------------------------
 st.markdown(
-    """
+    f"""
     <style>
-    .hero {
+    .hero {{
         position: relative;
         width: 100%;
-        height: 300px;
-        background-image: url("images/loginimage.jpg");
+        height: 320px;
+        background-image: url("data:image/jpg;base64,{bg_image}");
         background-size: cover;
         background-position: center;
-        border-radius: 10px;
+        border-radius: 12px;
         margin-bottom: 25px;
-    }
+    }}
 
-    .hero-text {
+    .hero-text {{
         position: absolute;
         bottom: 30px;
         left: 40px;
         color: white;
-    }
+        text-shadow: 0px 2px 6px rgba(0,0,0,0.6);
+    }}
 
-    .hero-text h1 {
-        font-size: 38px;
+    .hero-text h1 {{
+        font-size: 40px;
         margin: 0;
-    }
+    }}
 
-    .hero-text p {
+    .hero-text p {{
         font-size: 16px;
-        opacity: 0.9;
-    }
+        opacity: 0.95;
+    }}
 
-    .card {
+    .card {{
         padding: 20px;
         background-color: #111827;
         border-radius: 10px;
         text-align: center;
-    }
+    }}
     </style>
     """,
     unsafe_allow_html=True
@@ -74,7 +86,6 @@ st.markdown(
 # -------------------------------------------------
 def login_page():
 
-    # IMAGE WITH TEXT ON IMAGE (LIKE YOUR SAMPLE)
     st.markdown(
         """
         <div class="hero">
@@ -110,6 +121,7 @@ def login_page():
             else:
                 st.error("Invalid credentials")
 
+
 # -------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------
@@ -130,15 +142,11 @@ def dashboard():
         st.session_state.current_user = None
         st.rerun()
 
-    # -------------------------------------------------
     # DASHBOARD HOME
-    # -------------------------------------------------
     if menu == "Dashboard":
-
         st.title("🏦 AI Banking Intelligence Dashboard")
 
         col1, col2, col3 = st.columns(3)
-
         col1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
         col2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
         col3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
@@ -153,9 +161,7 @@ def dashboard():
         fig = px.bar(df, x="Segment", y="Customers", color="Segment")
         st.plotly_chart(fig, use_container_width=True)
 
-    # -------------------------------------------------
     # CUSTOMER PREDICTION
-    # -------------------------------------------------
     if menu == "Customer Prediction":
         st.title("🔮 Customer Risk Prediction")
 
@@ -167,9 +173,7 @@ def dashboard():
             risk = "High Risk" if balance < 5000 and transactions < 10 else "Low Risk"
             st.success(f"Predicted Risk Level: **{risk}**")
 
-    # -------------------------------------------------
     # ADD CUSTOMER
-    # -------------------------------------------------
     if menu == "Add Customer":
         st.title("➕ Add New Customer")
 
@@ -180,8 +184,9 @@ def dashboard():
         if st.button("Add Customer"):
             st.success(f"Customer **{name}** added successfully!")
 
+
 # -------------------------------------------------
-# APP ROUTER
+# ROUTER
 # -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
