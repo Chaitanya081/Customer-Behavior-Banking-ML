@@ -1,21 +1,21 @@
-from sklearn.cluster import KMeans
+import pandas as pd
+from sklearn.preprocessing import LabelEncoder
+from sklearn.linear_model import LogisticRegression
 
-def segment_customers(df):
-    features = df[["age", "balance", "campaign", "duration"]]
-    kmeans = KMeans(n_clusters=3, random_state=42)
-    df["segment"] = kmeans.fit_predict(features)
+def preprocess(df):
+    df = df.copy()
+    for col in df.select_dtypes(include="object"):
+        le = LabelEncoder()
+        df[col] = le.fit_transform(df[col])
     return df
 
-def predict_risk_single(age, balance, duration, campaign):
-    score = 0
-    if age < 30: score += 1
-    if balance < 0: score += 2
-    if duration < 100: score += 2
-    if campaign > 3: score += 1
+def predict_risk(df):
+    df = preprocess(df)
 
-    if score >= 4:
-        return "High Risk"
-    elif score >= 2:
-        return "Medium Risk"
-    else:
-        return "Low Risk"
+    X = df.drop("y", axis=1)
+    y = df["y"]
+
+    model = LogisticRegression(max_iter=1000)
+    model.fit(X, y)
+
+    return model.predict(X[:1])[0]
