@@ -1,26 +1,31 @@
 import streamlit as st
-import hashlib
 
-def _ensure_users():
+def init_auth():
     if "users" not in st.session_state:
-        st.session_state["users"] = {}
+        st.session_state.users = {}
+    if "logged_in" not in st.session_state:
+        st.session_state.logged_in = False
+    if "current_user" not in st.session_state:
+        st.session_state.current_user = None
 
-def hash_password(password):
-    return hashlib.sha256(password.encode()).hexdigest()
 
 def register_user(email, password):
-    _ensure_users()
-
-    if email in st.session_state["users"]:
+    init_auth()
+    if email in st.session_state.users:
         return False
-
-    st.session_state["users"][email] = hash_password(password)
+    st.session_state.users[email] = password
     return True
 
+
 def login_user(email, password):
-    _ensure_users()
+    init_auth()
+    if email in st.session_state.users and st.session_state.users[email] == password:
+        st.session_state.logged_in = True
+        st.session_state.current_user = email
+        return True
+    return False
 
-    if email not in st.session_state["users"]:
-        return False
 
-    return st.session_state["users"][email] == hash_password(password)
+def logout_user():
+    st.session_state.logged_in = False
+    st.session_state.current_user = None
