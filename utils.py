@@ -1,13 +1,29 @@
 import pandas as pd
-import streamlit as st
-from sklearn.preprocessing import LabelEncoder
+from sklearn.preprocessing import OneHotEncoder
 
-@st.cache_data
 def load_data():
     return pd.read_csv("data/bank_marketing.csv", sep=";")
 
-def encode_data(df):
-    le = LabelEncoder()
-    for col in df.select_dtypes(include="object"):
-        df[col] = le.fit_transform(df[col])
-    return df
+def prepare_ml_data(df):
+    df = df.copy()
+
+    # Target encoding
+    df["y"] = df["y"].map({"yes": 1, "no": 0})
+
+    categorical_cols = df.select_dtypes(include="object").columns
+    numeric_cols = df.select_dtypes(exclude="object").columns.drop("y")
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoded_cat = encoder.fit_transform(df[categorical_cols])
+
+    encoded_cat_df = pd.DataFrame(
+        encoded_cat,
+        columns=encoder.get_feature_names_out(categorical_cols)
+    )
+
+    final_df = pd.concat(
+        [df[numeric_cols].reset_index(drop=True), encoded_cat_df],
+        axis=1
+    )
+
+    return final_df, df["y"]
