@@ -53,13 +53,13 @@ st.markdown(
 
     /* LOGIN BOX */
     .login-box {{
-        width: 550px;
-        min-height: 460px;
-        margin: 120px auto;
-        padding: 45px;
+        width: 420px;
+        min-height: 320px;
+        margin: 90px auto;
+        padding: 30px;
         background: rgba(15,23,42,0.96);
-        border-radius: 18px;
-        box-shadow: 0 30px 70px rgba(0,0,0,0.8);
+        border-radius: 16px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.75);
         display: flex;
         flex-direction: column;
         justify-content: center;
@@ -99,7 +99,7 @@ def login_page():
     st.markdown(
         """
         <div class="login-box">
-            <div class="login-title">🏦 AI Banking Platform</div>
+            <div class="login-title">🏦 Customer Analysis Platform</div>
             <div class="login-sub">
                 Customer Intelligence & Risk Prediction System
             </div>
@@ -201,3 +201,4 @@ if st.session_state.logged_in:
     dashboard()
 else:
     login_page()
+
