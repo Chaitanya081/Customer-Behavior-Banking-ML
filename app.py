@@ -5,14 +5,17 @@ from auth import register_user, login_user
 
 st.set_page_config(page_title="AI Banking Platform", layout="wide")
 
+# ✅ HARD INITIALIZATION (THIS FIXES EVERYTHING)
+if "users" not in st.session_state:
+    st.session_state["users"] = {}
+
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+
 IMAGE_PATH = os.path.join(os.getcwd(), "images", "loginimage.jpg")
 
-# ✅ Initialize session states
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-# ---------------- LOGIN PAGE ----------------
-if not st.session_state.logged_in:
+# ---------------- LOGIN / REGISTER ----------------
+if not st.session_state["logged_in"]:
     apply_login_style(IMAGE_PATH)
 
     st.markdown('<div class="login-box">', unsafe_allow_html=True)
@@ -33,7 +36,7 @@ if not st.session_state.logged_in:
     else:
         if st.button("Login"):
             if login_user(email, password):
-                st.session_state.logged_in = True
+                st.session_state["logged_in"] = True
                 st.success("Login successful")
                 st.rerun()
             else:
@@ -43,19 +46,19 @@ if not st.session_state.logged_in:
 
 # ---------------- DASHBOARD ----------------
 else:
-    st.sidebar.success("Logged in successfully")
+    st.sidebar.success("Logged in")
 
     st.title("🏦 AI Banking Intelligence Dashboard")
-    st.write("Welcome to the system")
+    st.write("Welcome! You are inside the application.")
 
     col1, col2, col3 = st.columns(3)
     col1.metric("Total Customers", "45,211")
-    col2.metric("High Risk Customers", "12%")
+    col2.metric("High Risk", "12%")
     col3.metric("Retention Rate", "88%")
 
-    st.subheader("📊 Customer Distribution")
-    st.bar_chart([10, 20, 35, 25, 15])
+    st.subheader("📊 Customer Insights")
+    st.bar_chart([20, 35, 15, 30])
 
     if st.button("Logout"):
-        st.session_state.logged_in = False
+        st.session_state["logged_in"] = False
         st.rerun()
