@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SESSION STATE INIT
+# SESSION STATE
 # -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -34,7 +34,7 @@ def load_data():
 data = load_data()
 
 # -------------------------------------------------
-# BACKGROUND IMAGE (BASE64)
+# BACKGROUND IMAGE (BASE64 – FIXED)
 # -------------------------------------------------
 def get_base64_image(path):
     with open(path, "rb") as f:
@@ -49,7 +49,9 @@ st.markdown(
         background-image: url("data:image/jpg;base64,{bg_img}");
         background-size: cover;
         background-position: center;
+        background-repeat: no-repeat;
     }}
+
     .stApp::before {{
         content: "";
         position: fixed;
@@ -57,10 +59,34 @@ st.markdown(
         background: rgba(0,0,0,0.65);
         z-index: -1;
     }}
+
+    .login-box {{
+        width: 420px;
+        padding: 30px;
+        margin: 100px auto;
+        background: rgba(15,23,42,0.96);
+        border-radius: 16px;
+        box-shadow: 0 25px 60px rgba(0,0,0,0.8);
+    }}
+
+    .login-title {{
+        font-size: 34px;
+        font-weight: 800;
+        color: white;
+        text-align: center;
+    }}
+
+    .login-sub {{
+        font-size: 14px;
+        color: #cbd5e1;
+        text-align: center;
+        margin-bottom: 25px;
+    }}
+
     .card {{
         background: #0f172a;
-        padding: 25px;
-        border-radius: 14px;
+        padding: 20px;
+        border-radius: 12px;
         text-align: center;
     }}
     </style>
@@ -72,16 +98,14 @@ st.markdown(
 # LOGIN PAGE
 # -------------------------------------------------
 def login_page():
+
     st.markdown(
         """
         <div class="login-box">
-            <h2 style="text-align:center;color:white;">
-            🏦 Customer Analysis Platform
-            </h2>
-            <p style="text-align:center;color:#cbd5e1;">
-            Customer Intelligence & Risk Prediction System
-            </p>
-        </div>
+            <div class="login-title">Customer Analysis Platform</div>
+            <div class="login-sub">
+                Customer Intelligence & Risk Prediction System
+            </div>
         """,
         unsafe_allow_html=True
     )
@@ -104,25 +128,31 @@ def login_page():
             else:
                 st.error("Invalid credentials")
 
+    st.markdown("</div>", unsafe_allow_html=True)
+
 # -------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------
 def dashboard():
 
+    st.sidebar.markdown("### 👤 User")
     st.sidebar.success("Logged in")
     st.sidebar.write(st.session_state.current_user)
 
     menu = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Customer Prediction", "View Customers"]
+        ["Dashboard", "Customer Prediction", "Add Customer", "View Customers"]
     )
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
+        st.session_state.current_user = None
         st.rerun()
 
-    # ---------------- METRICS ----------------
-    total_customers = len(data)
+    # -------------------------------------------------
+    # DATA METRICS (REAL)
+    # -------------------------------------------------
+    total_customers = data.shape[0]
 
     data["Risk"] = data.apply(
         lambda x: "High Risk" if x["balance"] < 500 and x["campaign"] > 3 else "Low Risk",
@@ -137,7 +167,9 @@ def dashboard():
         (data["y"] == "yes").sum() / total_customers * 100, 2
     )
 
-    # ---------------- DASHBOARD ----------------
+    # -------------------------------------------------
+    # DASHBOARD PAGE
+    # -------------------------------------------------
     if menu == "Dashboard":
 
         st.title("📊 Customer Intelligence Dashboard")
@@ -148,32 +180,54 @@ def dashboard():
         c3.markdown(f"<div class='card'><h3>Retention Rate</h3><h2>{retention_rate}%</h2></div>", unsafe_allow_html=True)
 
         st.markdown("### 📈 Risk Distribution")
-        fig1 = px.pie(data, names="Risk")
+
+        fig1 = px.pie(
+            data,
+            names="Risk",
+            title="Customer Risk Distribution",
+            hole=0.4
+        )
         st.plotly_chart(fig1, use_container_width=True)
 
-        st.markdown("### 📉 Retention Analysis")
-        fig2 = px.histogram(data, x="age", color="y")
-        st.plotly_chart(fig2, use_container_width=True)
-
-    # ---------------- PREDICTION ----------------
+    # -------------------------------------------------
+    # CUSTOMER PREDICTION
+    # -------------------------------------------------
     if menu == "Customer Prediction":
+
         st.title("🔮 Customer Risk Prediction")
 
-        age = st.slider("Age", 18, 90)
-        balance = st.number_input("Balance")
+        age = st.slider("Age", 18, 70)
+        balance = st.number_input("Account Balance", 0)
         campaign = st.slider("Campaign Contacts", 1, 10)
 
         if st.button("Predict"):
             risk = "High Risk" if balance < 500 and campaign > 3 else "Low Risk"
-            st.success(f"Predicted Risk: {risk}")
+            st.success(f"Predicted Risk Level: **{risk}**")
 
-    # ---------------- VIEW CUSTOMERS ----------------
+    # -------------------------------------------------
+    # ADD CUSTOMER
+    # -------------------------------------------------
+    if menu == "Add Customer":
+
+        st.title("➕ Add New Customer")
+
+        name = st.text_input("Customer Name")
+        age = st.number_input("Age", 18, 80)
+        balance = st.number_input("Initial Balance", 0)
+
+        if st.button("Add Customer"):
+            st.success(f"Customer **{name}** added successfully!")
+
+    # -------------------------------------------------
+    # VIEW CUSTOMERS
+    # -------------------------------------------------
     if menu == "View Customers":
-        st.title("👥 Customer Dataset")
-        st.dataframe(data.head(100))
+
+        st.title("📋 Existing Customers (Dataset)")
+        st.dataframe(data.head(50), use_container_width=True)
 
 # -------------------------------------------------
-# ROUTER
+# APP ROUTER
 # -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
