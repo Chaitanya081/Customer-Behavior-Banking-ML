@@ -6,7 +6,7 @@ import plotly.express as px
 # PAGE CONFIG
 # -------------------------------------------------
 st.set_page_config(
-    page_title="AI Banking Platform",
+    page_title="Customer Analysis Platform",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
@@ -185,3 +185,4 @@ if st.session_state.logged_in:
     dashboard()
 else:
     login_page()
+
