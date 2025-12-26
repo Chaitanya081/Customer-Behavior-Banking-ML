@@ -1,37 +1,42 @@
 import streamlit as st
 import base64
-import pandas as pd
+from pathlib import Path
 import plotly.express as px
-
 from auth import init_auth, login_user, register_user, logout_user
 from models import customer_metrics, bar_chart_data, predict_customer
 
 st.set_page_config(page_title="AI Banking Platform", layout="wide")
 
-# ---------- BACKGROUND IMAGE ----------
-def set_background(image_file):
-    with open(image_file, "rb") as img:
-        encoded = base64.b64encode(img.read()).decode()
-    st.markdown(
-        f"""
-        <style>
-        .stApp {{
-            background-image: url("data:image/jpg;base64,{encoded}");
-            background-size: cover;
-            background-position: center;
-            background-repeat: no-repeat;
-        }}
-        </style>
-        """,
-        unsafe_allow_html=True
-    )
+# ---------- BACKGROUND IMAGE (FIXED) ----------
+def set_background():
+    img_path = Path(__file__).parent / "images" / "loginimage.jpg"
+
+    if img_path.exists():
+        with open(img_path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode()
+
+        st.markdown(
+            f"""
+            <style>
+            .stApp {{
+                background-image: url("data:image/jpg;base64,{encoded}");
+                background-size: cover;
+                background-position: center;
+                background-repeat: no-repeat;
+            }}
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+    else:
+        st.warning("⚠️ Background image not found. Using default theme.")
 
 # ---------- INIT ----------
 init_auth()
 
 # ---------- LOGIN PAGE ----------
 def login_page():
-    set_background("images/loginimage.jpg")
+    set_background()
 
     st.markdown("## 🏦 AI Banking Platform")
     option = st.radio("Select Option", ["Login", "Register"])
@@ -98,9 +103,9 @@ def dashboard():
 
     if menu == "Analytics":
         st.subheader("📊 Analytics Overview")
-        st.info("Advanced analytics module ready for future expansion")
+        st.info("Advanced analytics module ready")
 
-# ---------- ROUTING ----------
+# ---------- ROUTER ----------
 if not st.session_state.logged_in:
     login_page()
 else:
