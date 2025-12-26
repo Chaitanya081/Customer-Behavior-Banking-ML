@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import base64
+from pathlib import Path
 
 # -------------------------------------------------
 # PAGE CONFIG
@@ -13,7 +14,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SESSION STATE (FIXES ALL ERRORS)
+# SESSION STATE INIT (FIXES ALL ERRORS)
 # -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -24,19 +25,20 @@ if "logged_in" not in st.session_state:
 if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
+# -------------------------------------------------
+# LOAD IMAGE SAFELY (BASE64)
+# -------------------------------------------------
+def load_bg_image(image_path):
+    if not Path(image_path).exists():
+        return ""
+    with open(image_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+bg_image = load_bg_image("images/loginimage.jpg")
 
 # -------------------------------------------------
-# LOAD IMAGE AS BASE64 (THIS IS THE KEY)
-# -------------------------------------------------
-def get_base64_image(path):
-    with open(path, "rb") as img:
-        return base64.b64encode(img.read()).decode()
-
-bg_image = get_base64_image("images/loginimage.jpg")
-
-
-# -------------------------------------------------
-# CSS WITH IMAGE + TEXT OVERLAY (100% WORKING)
+# CSS WITH IMAGE + TEXT OVERLAY (WORKING)
 # -------------------------------------------------
 st.markdown(
     f"""
@@ -49,31 +51,41 @@ st.markdown(
         background-size: cover;
         background-position: center;
         border-radius: 12px;
-        margin-bottom: 25px;
+        margin-bottom: 30px;
+    }}
+
+    .hero::after {{
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(0,0,0,0.45);
+        border-radius: 12px;
     }}
 
     .hero-text {{
         position: absolute;
-        bottom: 30px;
-        left: 40px;
+        bottom: 35px;
+        left: 45px;
         color: white;
-        text-shadow: 0px 2px 6px rgba(0,0,0,0.6);
+        z-index: 2;
     }}
 
     .hero-text h1 {{
-        font-size: 40px;
+        font-size: 42px;
         margin: 0;
+        font-weight: 700;
     }}
 
     .hero-text p {{
         font-size: 16px;
-        opacity: 0.95;
+        opacity: 0.9;
+        margin-top: 5px;
     }}
 
     .card {{
-        padding: 20px;
+        padding: 22px;
         background-color: #111827;
-        border-radius: 10px;
+        border-radius: 12px;
         text-align: center;
     }}
     </style>
@@ -116,11 +128,9 @@ def login_page():
             if email in st.session_state.users and st.session_state.users[email] == password:
                 st.session_state.logged_in = True
                 st.session_state.current_user = email
-                st.success("Login successful")
                 st.rerun()
             else:
                 st.error("Invalid credentials")
-
 
 # -------------------------------------------------
 # DASHBOARD
@@ -142,14 +152,14 @@ def dashboard():
         st.session_state.current_user = None
         st.rerun()
 
-    # DASHBOARD HOME
+    # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
         st.title("🏦 AI Banking Intelligence Dashboard")
 
-        col1, col2, col3 = st.columns(3)
-        col1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
-        col2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
-        col3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
+        c1, c2, c3 = st.columns(3)
+        c1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
+        c2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
+        c3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
 
         st.markdown("### 📊 Customer Insights")
 
@@ -161,19 +171,19 @@ def dashboard():
         fig = px.bar(df, x="Segment", y="Customers", color="Segment")
         st.plotly_chart(fig, use_container_width=True)
 
-    # CUSTOMER PREDICTION
+    # ---------------- PREDICTION ----------------
     if menu == "Customer Prediction":
         st.title("🔮 Customer Risk Prediction")
 
         age = st.slider("Age", 18, 70)
         balance = st.number_input("Account Balance", 0)
-        transactions = st.slider("Monthly Transactions", 1, 100)
+        tx = st.slider("Monthly Transactions", 1, 100)
 
         if st.button("Predict Risk"):
-            risk = "High Risk" if balance < 5000 and transactions < 10 else "Low Risk"
+            risk = "High Risk" if balance < 5000 and tx < 10 else "Low Risk"
             st.success(f"Predicted Risk Level: **{risk}**")
 
-    # ADD CUSTOMER
+    # ---------------- ADD CUSTOMER ----------------
     if menu == "Add Customer":
         st.title("➕ Add New Customer")
 
@@ -184,9 +194,8 @@ def dashboard():
         if st.button("Add Customer"):
             st.success(f"Customer **{name}** added successfully!")
 
-
 # -------------------------------------------------
-# ROUTER
+# APP ROUTER
 # -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
