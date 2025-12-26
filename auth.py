@@ -1,17 +1,22 @@
+import streamlit as st
 import hashlib
 
-USERS = {}  # In-memory (hackathon safe)
-
+# simple in-memory user store
 def hash_password(password):
     return hashlib.sha256(password.encode()).hexdigest()
 
 def register_user(email, password):
-    if email in USERS:
+    if "users" not in st.session_state:
+        st.session_state.users = {}
+
+    if email in st.session_state.users:
         return False
-    USERS[email] = hash_password(password)
+
+    st.session_state.users[email] = hash_password(password)
     return True
 
 def login_user(email, password):
-    if email not in USERS:
+    if "users" not in st.session_state:
         return False
-    return USERS[email] == hash_password(password)
+
+    return st.session_state.users.get(email) == hash_password(password)
