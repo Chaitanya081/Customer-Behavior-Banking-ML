@@ -7,6 +7,7 @@ st.set_page_config(page_title="AI Banking Platform", layout="wide")
 
 IMAGE_PATH = os.path.join(os.getcwd(), "images", "loginimage.jpg")
 
+# ✅ Initialize session states
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
@@ -36,24 +37,24 @@ if not st.session_state.logged_in:
                 st.success("Login successful")
                 st.rerun()
             else:
-                st.error("Invalid credentials")
+                st.error("Invalid email or password")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ---------------- DASHBOARD ----------------
 else:
-    st.sidebar.success(f"Logged in as {list(st.session_state.users.keys())[0]}")
+    st.sidebar.success("Logged in successfully")
 
     st.title("🏦 AI Banking Intelligence Dashboard")
-    st.write("Welcome! You are now inside the web app.")
+    st.write("Welcome to the system")
 
     col1, col2, col3 = st.columns(3)
-    col1.metric("Customers", "45,211")
-    col2.metric("High Risk", "12%")
+    col1.metric("Total Customers", "45,211")
+    col2.metric("High Risk Customers", "12%")
     col3.metric("Retention Rate", "88%")
 
-    st.subheader("📊 Sample Analysis")
-    st.bar_chart({"Deposits": [10, 20, 30, 25, 15]})
+    st.subheader("📊 Customer Distribution")
+    st.bar_chart([10, 20, 35, 25, 15])
 
     if st.button("Logout"):
         st.session_state.logged_in = False
