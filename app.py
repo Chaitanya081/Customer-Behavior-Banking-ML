@@ -1,75 +1,63 @@
 import streamlit as st
-from auth import register, login
-from styles import apply_style
+from auth import login_user, register_user
 from utils import load_data
 from models import segment_customers, predict_risk
 
 st.set_page_config(page_title="AI Banking Platform", layout="wide")
 
-# ---------------- SESSION STATE INIT ----------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+# ---------- SESSION STATE ----------
+if "page" not in st.session_state:
+    st.session_state.page = "login"
 
-# ---------------- AUTH SECTION ----------------
-if not st.session_state.logged_in:
-    choice = st.radio("", ["Login", "Register"], horizontal=True)
+if "user_email" not in st.session_state:
+    st.session_state.user_email = None
 
-    if choice == "Register":
-        register()
+
+# ==================================================
+# 🔐 LOGIN / REGISTER PAGE
+# ==================================================
+if st.session_state.page == "login":
+
+    choice = st.radio("Choose option", ["Login", "Register"], horizontal=True)
+
+    if choice == "Login":
+        success = login_user()
+        if success:
+            st.session_state.page = "dashboard"
+            st.rerun()
+
     else:
-        login()
+        register_user()
 
-    # ⛔ STOP ONLY WHEN NOT LOGGED IN
-    st.stop()
+# ==================================================
+# 🏦 DASHBOARD PAGE
+# ==================================================
+elif st.session_state.page == "dashboard":
 
-# ================= DASHBOARD STARTS HERE =================
+    st.sidebar.success(f"Logged in as {st.session_state.user_email}")
 
-apply_style()
+    if st.sidebar.button("Logout"):
+        st.session_state.page = "login"
+        st.session_state.user_email = None
+        st.rerun()
 
-st.sidebar.success(f"Logged in as {st.session_state.user_email}")
+    st.title("🏦 AI Banking Intelligence Dashboard")
 
-if st.sidebar.button("Logout"):
-    st.session_state.logged_in = False
-    st.rerun()
+    df = load_data()
 
-# ---------------- LOAD DATA ----------------
-df = load_data()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Customers", len(df))
+    c2.metric("Avg Balance", int(df["balance"].mean()))
+    c3.metric("Avg Campaign", round(df["campaign"].mean(), 2))
 
-st.title("🏦 AI Banking Intelligence Dashboard")
-st.caption("Customer Behavior • Risk Prediction • Smart Decisions")
+    st.divider()
 
-# ---------------- KPIs ----------------
-c1, c2, c3, c4 = st.columns(4)
-c1.metric("👥 Customers", len(df))
-c2.metric("💰 Avg Balance", f"₹{int(df['balance'].mean()):,}")
-c3.metric("📞 Avg Campaigns", round(df["campaign"].mean(), 2))
-c4.metric(
-    "📈 Subscription Rate",
-    f"{round(df['y'].value_counts(normalize=True).get('yes', 0)*100, 2)}%"
-)
+    df["y"] = df["y"].map({"yes": 1, "no": 0})
 
-st.divider()
+    if st.button("Run Customer Segmentation"):
+        seg = segment_customers(df.copy())
+        st.dataframe(seg.head())
 
-# ---------------- ML OPERATIONS ----------------
-st.subheader("🧠 AI Operations")
-
-df_encoded = df.copy()
-df_encoded["y"] = df_encoded["y"].map({"yes": 1, "no": 0})
-
-if st.button("Run Customer Segmentation"):
-    df_seg = segment_customers(df_encoded)
-    st.success("Customer segmentation completed")
-    st.dataframe(df_seg[["age", "balance", "segment"]].head())
-
-if st.button("Run Risk Prediction"):
-    df_risk = predict_risk(df_encoded)
-    st.success("Risk prediction completed")
-    st.bar_chart(df_risk["risk"].value_counts())
-
-    high_risk = df_risk[df_risk["risk"] == "High"].shape[0]
-    st.subheader("🤖 AI Recommendation")
-
-    if high_risk > 1000:
-        st.warning("High churn risk detected. Launch retention campaigns.")
-    else:
-        st.success("Customer base stable. Focus on upselling.")
+    if st.button("Run Risk Prediction"):
+        risk = predict_risk(df.copy())
+        st.write(risk["risk"].value_counts())
