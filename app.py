@@ -1,120 +1,119 @@
 import streamlit as st
-import pandas as pd
-import plotly.express as px
-import os
-
 from auth import register_user, login_user
-from models import risk_prediction
 
-st.set_page_config(layout="wide", page_title="AI Banking Platform")
+# -------------------- PAGE CONFIG --------------------
+st.set_page_config(page_title="AI Banking Platform", layout="wide")
 
-# ---------- SESSION ----------
+# -------------------- SESSION INIT --------------------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
+if "user" not in st.session_state:
+    st.session_state.user = None
 
-# ---------- IMAGE ----------
-IMAGE_PATH = "images/loginimage.jpg"
+# -------------------- BACKGROUND IMAGE + CSS --------------------
+def set_bg():
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background: linear-gradient(
+                rgba(0,0,0,0.55),
+                rgba(0,0,0,0.55)
+            ),
+            url("images/loginimage.jpg");
+            background-size: cover;
+            background-position: center;
+        }
 
-def show_login_image():
-    if os.path.exists(IMAGE_PATH):
-        st.image(IMAGE_PATH, use_container_width=True)
-    else:
-        st.warning("Login image not found")
+        .login-box {
+            background: rgba(0, 0, 0, 0.65);
+            padding: 30px;
+            border-radius: 12px;
+            width: 450px;
+            margin-top: 40px;
+        }
 
-# ---------- LOGIN PAGE ----------
+        label, h1, h3 {
+            color: white !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
+
+set_bg()
+
+# -------------------- LOGIN PAGE --------------------
 def login_page():
-    show_login_image()
+    col1, col2 = st.columns([1, 2])
 
-    st.markdown("## 🏦 AI Banking Platform")
+    with col1:
+        st.markdown("## 🏦 AI Banking Platform")
+        option = st.radio("Select Option", ["Login", "Register"])
 
-    option = st.radio("Select Option", ["Login", "Register"])
+        email = st.text_input("Email")
+        password = st.text_input("Password", type="password")
 
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
+        if option == "Register":
+            if st.button("Register"):
+                if register_user(email, password):
+                    st.success("Registration successful. Please login.")
+                else:
+                    st.error("User already exists.")
 
-    if option == "Register":
-        if st.button("Register"):
-            if register_user(email, password):
-                st.success("Registered successfully. Please login.")
-            else:
-                st.error("User already exists")
+        else:
+            if st.button("Login"):
+                if login_user(email, password):
+                    st.session_state.logged_in = True
+                    st.session_state.user = email
+                    st.rerun()
+                else:
+                    st.error("Invalid email or password")
 
-    if option == "Login":
-        if st.button("Login"):
-            if login_user(email, password):
-                st.session_state.logged_in = True
-                st.session_state.user = email
-                st.experimental_rerun()
-            else:
-                st.error("Invalid credentials")
-
-# ---------- DASHBOARD ----------
+# -------------------- DASHBOARD --------------------
 def dashboard():
-    st.sidebar.markdown("## 👤 User")
+    st.sidebar.markdown(f"### 👤 {st.session_state.user}")
     st.sidebar.success("Logged in")
-    st.sidebar.write(st.session_state.user)
 
-    page = st.sidebar.radio(
+    menu = st.sidebar.radio(
         "Navigation",
         ["Dashboard", "Add Customer", "Prediction", "Analytics"]
     )
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
-        st.experimental_rerun()
+        st.session_state.user = None
+        st.rerun()
 
-    # ---------- SAMPLE DATA ----------
-    data = pd.DataFrame({
-        "age": [25, 45, 35, 50, 28],
-        "balance": [5000, -200, 3000, -1500, 7000]
-    })
+    st.markdown("# 🏛 AI Banking Intelligence Dashboard")
 
-    # ---------- DASHBOARD ----------
-    if page == "Dashboard":
-        st.markdown("# 🏦 AI Banking Intelligence Dashboard")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Customers", "45,211")
+    col2.metric("High Risk", "12%")
+    col3.metric("Retention Rate", "88%")
 
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Total Customers", "45,211")
-        c2.metric("High Risk", "12%")
-        c3.metric("Retention Rate", "88%")
+    if menu == "Dashboard":
+        st.info("Welcome! Advanced banking insights loaded.")
 
-        fig = px.bar(
-            x=["Low Risk", "High Risk"],
-            y=[80, 20],
-            title="Customer Risk Distribution"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-    # ---------- ADD CUSTOMER ----------
-    if page == "Add Customer":
-        st.markdown("## ➕ Add New Customer")
-
+    if menu == "Add Customer":
+        st.subheader("➕ Add New Customer")
+        name = st.text_input("Customer Name")
         age = st.number_input("Age", 18, 100)
-        balance = st.number_input("Balance")
+        income = st.number_input("Annual Income")
+        if st.button("Save Customer"):
+            st.success(f"Customer {name} added successfully!")
 
-        if st.button("Add Customer"):
-            st.success(f"Customer Added | Age: {age}, Balance: {balance}")
+    if menu == "Prediction":
+        st.subheader("📊 Risk Prediction")
+        st.slider("Credit Score", 300, 900)
+        st.button("Predict Risk")
 
-    # ---------- PREDICTION ----------
-    if page == "Prediction":
-        st.markdown("## 🔮 Risk Prediction")
+    if menu == "Analytics":
+        st.subheader("📈 Analytics Overview")
+        st.success("Advanced analytics module ready")
 
-        result = risk_prediction(data)
-        st.dataframe(result)
-
-    # ---------- ANALYTICS ----------
-    if page == "Analytics":
-        st.markdown("## 📊 Analytics Overview")
-
-        fig = px.pie(
-            names=["Low Risk", "High Risk"],
-            values=[80, 20],
-            title="Risk Split"
-        )
-        st.plotly_chart(fig, use_container_width=True)
-
-# ---------- ROUTER ----------
-if not st.session_state.logged_in:
-    login_page()
-else:
+# -------------------- ROUTER --------------------
+if st.session_state.logged_in:
     dashboard()
+else:
+    login_page()
