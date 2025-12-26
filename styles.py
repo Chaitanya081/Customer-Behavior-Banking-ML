@@ -1,9 +1,22 @@
 import streamlit as st
 
-def load_styles():
-    st.markdown("""
+def apply_login_style(image_path):
+    st.markdown(
+        f"""
         <style>
-        body { background-color: #0e1117; }
-        h1, h2, h3 { color: #00c6ff; }
+        .stApp {{
+            background-image: url("{image_path}");
+            background-size: cover;
+            background-position: center;
+        }}
+        .login-box {{
+            background: rgba(0,0,0,0.65);
+            padding: 30px;
+            border-radius: 12px;
+            width: 400px;
+            margin: auto;
+        }}
         </style>
-    """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True
+    )
