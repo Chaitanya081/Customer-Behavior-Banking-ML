@@ -1,4 +1,4 @@
-import pandas as pd
+import os
 
-def load_data():
-    return pd.read_csv("data/bank_marketing.csv", sep=";")
+def get_image_path(filename):
+    return os.path.join(os.path.dirname(__file__), "images", filename)
