@@ -1,44 +1,32 @@
 import streamlit as st
-import base64
-from pathlib import Path
+import pandas as pd
 import plotly.express as px
-from auth import init_auth, login_user, register_user, logout_user
-from models import customer_metrics, bar_chart_data, predict_customer
+import os
 
-st.set_page_config(page_title="AI Banking Platform", layout="wide")
+from auth import register_user, login_user
+from models import risk_prediction
 
-# ---------- BACKGROUND IMAGE (FIXED) ----------
-def set_background():
-    img_path = Path(__file__).parent / "images" / "loginimage.jpg"
+st.set_page_config(layout="wide", page_title="AI Banking Platform")
 
-    if img_path.exists():
-        with open(img_path, "rb") as f:
-            encoded = base64.b64encode(f.read()).decode()
+# ---------- SESSION ----------
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
 
-        st.markdown(
-            f"""
-            <style>
-            .stApp {{
-                background-image: url("data:image/jpg;base64,{encoded}");
-                background-size: cover;
-                background-position: center;
-                background-repeat: no-repeat;
-            }}
-            </style>
-            """,
-            unsafe_allow_html=True
-        )
+# ---------- IMAGE ----------
+IMAGE_PATH = "images/loginimage.jpg"
+
+def show_login_image():
+    if os.path.exists(IMAGE_PATH):
+        st.image(IMAGE_PATH, use_container_width=True)
     else:
-        st.warning("⚠️ Background image not found. Using default theme.")
-
-# ---------- INIT ----------
-init_auth()
+        st.warning("Login image not found")
 
 # ---------- LOGIN PAGE ----------
 def login_page():
-    set_background()
+    show_login_image()
 
     st.markdown("## 🏦 AI Banking Platform")
+
     option = st.radio("Select Option", ["Login", "Register"])
 
     email = st.text_input("Email")
@@ -54,56 +42,76 @@ def login_page():
     if option == "Login":
         if st.button("Login"):
             if login_user(email, password):
-                st.success("Login successful")
-                st.rerun()
+                st.session_state.logged_in = True
+                st.session_state.user = email
+                st.experimental_rerun()
             else:
                 st.error("Invalid credentials")
 
 # ---------- DASHBOARD ----------
 def dashboard():
-    st.sidebar.markdown("### 👤 User")
+    st.sidebar.markdown("## 👤 User")
     st.sidebar.success("Logged in")
-    st.sidebar.markdown(f"**{st.session_state.current_user}**")
+    st.sidebar.write(st.session_state.user)
 
-    st.sidebar.markdown("---")
-    menu = st.sidebar.radio(
+    page = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Customer Prediction", "Analytics"]
+        ["Dashboard", "Add Customer", "Prediction", "Analytics"]
     )
 
-    st.sidebar.markdown("---")
-    if st.sidebar.button("🚪 Logout"):
-        logout_user()
-        st.rerun()
+    if st.sidebar.button("Logout"):
+        st.session_state.logged_in = False
+        st.experimental_rerun()
 
-    metrics = customer_metrics()
+    # ---------- SAMPLE DATA ----------
+    data = pd.DataFrame({
+        "age": [25, 45, 35, 50, 28],
+        "balance": [5000, -200, 3000, -1500, 7000]
+    })
 
-    st.title("🏛️ AI Banking Intelligence Dashboard")
+    # ---------- DASHBOARD ----------
+    if page == "Dashboard":
+        st.markdown("# 🏦 AI Banking Intelligence Dashboard")
 
-    col1, col2, col3 = st.columns(3)
-    col1.metric("Total Customers", metrics["total_customers"])
-    col2.metric("High Risk", f'{metrics["high_risk"]}%')
-    col3.metric("Retention Rate", f'{metrics["retention"]}%')
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Customers", "45,211")
+        c2.metric("High Risk", "12%")
+        c3.metric("Retention Rate", "88%")
 
-    if menu == "Dashboard":
-        df = bar_chart_data()
-        fig = px.bar(df, x="Category", y="Customers", title="Customer Risk Distribution")
+        fig = px.bar(
+            x=["Low Risk", "High Risk"],
+            y=[80, 20],
+            title="Customer Risk Distribution"
+        )
         st.plotly_chart(fig, use_container_width=True)
 
-    if menu == "Customer Prediction":
-        st.subheader("🔍 Predict Customer Risk")
+    # ---------- ADD CUSTOMER ----------
+    if page == "Add Customer":
+        st.markdown("## ➕ Add New Customer")
 
         age = st.number_input("Age", 18, 100)
-        balance = st.number_input("Account Balance")
-        campaign = st.number_input("Campaign Contacts", 0, 50)
+        balance = st.number_input("Balance")
 
-        if st.button("Predict Risk"):
-            result = predict_customer(age, balance, campaign)
-            st.success(f"Predicted Risk Level: **{result}**")
+        if st.button("Add Customer"):
+            st.success(f"Customer Added | Age: {age}, Balance: {balance}")
 
-    if menu == "Analytics":
-        st.subheader("📊 Analytics Overview")
-        st.info("Advanced analytics module ready")
+    # ---------- PREDICTION ----------
+    if page == "Prediction":
+        st.markdown("## 🔮 Risk Prediction")
+
+        result = risk_prediction(data)
+        st.dataframe(result)
+
+    # ---------- ANALYTICS ----------
+    if page == "Analytics":
+        st.markdown("## 📊 Analytics Overview")
+
+        fig = px.pie(
+            names=["Low Risk", "High Risk"],
+            values=[80, 20],
+            title="Risk Split"
+        )
+        st.plotly_chart(fig, use_container_width=True)
 
 # ---------- ROUTER ----------
 if not st.session_state.logged_in:
