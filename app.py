@@ -7,13 +7,13 @@ import base64
 # PAGE CONFIG
 # -------------------------------------------------
 st.set_page_config(
-    page_title="Customer Analysis Platform",
+    page_title="AI Banking Platform",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
 # -------------------------------------------------
-# SESSION STATE INIT
+# SESSION STATE INIT (CRITICAL)
 # -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -25,7 +25,7 @@ if "current_user" not in st.session_state:
     st.session_state.current_user = None
 
 # -------------------------------------------------
-# BACKGROUND IMAGE (BASE64)
+# BACKGROUND IMAGE (BASE64 – ALWAYS LOADS)
 # -------------------------------------------------
 def get_base64_image(path):
     with open(path, "rb") as f:
@@ -40,6 +40,7 @@ st.markdown(
         background-image: url("data:image/jpg;base64,{bg_img}");
         background-size: cover;
         background-position: center;
+        background-repeat: no-repeat;
     }}
 
     .stApp::before {{
@@ -50,6 +51,7 @@ st.markdown(
         z-index: -1;
     }}
 
+    /* LOGIN BOX */
     .login-box {{
         width: 420px;
         min-height: 320px;
@@ -58,6 +60,9 @@ st.markdown(
         background: rgba(15,23,42,0.96);
         border-radius: 16px;
         box-shadow: 0 25px 60px rgba(0,0,0,0.75);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
     }}
 
     .login-title {{
@@ -65,6 +70,7 @@ st.markdown(
         font-weight: 800;
         color: white;
         text-align: center;
+        margin-bottom: 8px;
     }}
 
     .login-sub {{
@@ -86,14 +92,14 @@ st.markdown(
 )
 
 # -------------------------------------------------
-# LOGIN PAGE
+# LOGIN / REGISTER PAGE
 # -------------------------------------------------
 def login_page():
 
     st.markdown(
         """
         <div class="login-box">
-            <div class="login-title">Customer Analysis Platform</div>
+            <div class="login-title">🏦 Customer Analysis Platform</div>
             <div class="login-sub">
                 Customer Intelligence & Risk Prediction System
             </div>
@@ -111,13 +117,14 @@ def login_page():
                 st.error("User already exists")
             else:
                 st.session_state.users[email] = password
-                st.success("Registration successful")
+                st.success("Registration successful. Please login.")
 
     if option == "Login":
         if st.button("Login"):
             if email in st.session_state.users and st.session_state.users[email] == password:
                 st.session_state.logged_in = True
                 st.session_state.current_user = email
+                st.success("Login successful")
                 st.rerun()
             else:
                 st.error("Invalid credentials")
@@ -129,14 +136,13 @@ def login_page():
 # -------------------------------------------------
 def dashboard():
 
-    # SIDEBAR
     st.sidebar.markdown("### 👤 User")
     st.sidebar.success("Logged in")
     st.sidebar.write(st.session_state.current_user)
 
     menu = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Customer Prediction", "Add Customer", "Live Analysis"]
+        ["Dashboard", "Customer Prediction", "Add Customer"]
     )
 
     st.sidebar.markdown("---")
@@ -145,16 +151,26 @@ def dashboard():
         st.session_state.current_user = None
         st.rerun()
 
-    # ---------------- DASHBOARD ----------------
+    # ---------------- DASHBOARD HOME ----------------
     if menu == "Dashboard":
-        st.title("📊 Customer Analysis Dashboard")
+        st.title("🏦 AI Banking Intelligence Dashboard")
 
-        c1, c2, c3 = st.columns(3)
-        c1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
-        c2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
-        c3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
+        col1, col2, col3 = st.columns(3)
+        col1.markdown("<div class='card'><h3>Total Customers</h3><h2>45,211</h2></div>", unsafe_allow_html=True)
+        col2.markdown("<div class='card'><h3>High Risk</h3><h2>12%</h2></div>", unsafe_allow_html=True)
+        col3.markdown("<div class='card'><h3>Retention Rate</h3><h2>88%</h2></div>", unsafe_allow_html=True)
 
-    # ---------------- CUSTOMER PREDICTION ----------------
+        st.markdown("### 📊 Customer Insights")
+
+        df = pd.DataFrame({
+            "Segment": ["Low Risk", "Medium Risk", "High Risk", "VIP"],
+            "Customers": [20000, 15000, 7000, 3000]
+        })
+
+        fig = px.bar(df, x="Segment", y="Customers", color="Segment")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # ---------------- PREDICTION ----------------
     if menu == "Customer Prediction":
         st.title("🔮 Customer Risk Prediction")
 
@@ -177,58 +193,8 @@ def dashboard():
         if st.button("Add Customer"):
             st.success(f"Customer **{name}** added successfully!")
 
-    # ---------------- LIVE ANALYSIS (NEW) ----------------
-    if menu == "Live Analysis":
-        st.title("📈 Live Customer Risk Analysis")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            age = st.slider("Customer Age", 18, 70)
-            balance = st.number_input("Account Balance", 0)
-            transactions = st.slider("Monthly Transactions", 1, 100)
-
-        risk = "Low Risk"
-        if balance < 5000 and transactions < 10:
-            risk = "High Risk"
-        elif balance < 10000:
-            risk = "Medium Risk"
-
-        with col2:
-            st.metric("Predicted Risk Level", risk)
-
-        # PIE CHART
-        risk_df = pd.DataFrame({
-            "Risk": ["Low", "Medium", "High"],
-            "Count": [30000, 9000, 6211]
-        })
-
-        pie = px.pie(
-            risk_df,
-            names="Risk",
-            values="Count",
-            hole=0.4,
-            title="Customer Risk Distribution"
-        )
-        st.plotly_chart(pie, use_container_width=True)
-
-        # BAR CHART
-        freq_df = pd.DataFrame({
-            "Transaction Range": ["Low", "Medium", "High"],
-            "Customers": [15000, 20000, 10211]
-        })
-
-        bar = px.bar(
-            freq_df,
-            x="Transaction Range",
-            y="Customers",
-            title="Transaction Frequency Analysis",
-            color="Transaction Range"
-        )
-        st.plotly_chart(bar, use_container_width=True)
-
 # -------------------------------------------------
-# ROUTER
+# APP ROUTER
 # -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
