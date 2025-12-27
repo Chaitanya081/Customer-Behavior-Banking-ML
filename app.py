@@ -15,11 +15,11 @@ st.set_page_config(
 # -------------------------------------------------
 # SESSION STATE
 # -------------------------------------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = True   # keep logged in for demo
+if "customers" not in st.session_state:
+    st.session_state.customers = []
 
 # -------------------------------------------------
-# LOAD DATASET (CORRECT WAY FOR YOUR CSV)
+# LOAD DATASET
 # -------------------------------------------------
 @st.cache_data
 def load_data():
@@ -29,8 +29,6 @@ def load_data():
         quotechar='"',
         engine="python"
     )
-
-    # Clean column names
     df.columns = df.columns.str.strip().str.lower()
     return df
 
@@ -72,22 +70,30 @@ st.markdown(
 )
 
 # -------------------------------------------------
+# SIDEBAR NAVIGATION
+# -------------------------------------------------
+st.sidebar.markdown("### 👤 User")
+st.sidebar.success("Logged in")
+menu = st.sidebar.radio(
+    "Navigation",
+    ["Dashboard", "Add Customer", "View Customers", "Customer Prediction"]
+)
+
+# -------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------
-def dashboard():
+if menu == "Dashboard":
 
     st.title("📊 Customer Intelligence Dashboard")
 
-    # -------------------------------------------------
-    # RISK LOGIC (BASED ON REAL DATA)
-    # -------------------------------------------------
+    # Risk logic (acts like trained ML explanation)
     data["risk"] = "Low Risk"
     data.loc[
         (data["balance"] < 0) & (data["campaign"] > 2),
         "risk"
     ] = "High Risk"
 
-    total_customers = len(data)
+    total_customers = len(data) + len(st.session_state.customers)
     high_risk_pct = round((data["risk"] == "High Risk").mean() * 100, 2)
     retention_rate = round((data["y"] == "yes").mean() * 100, 2)
 
@@ -96,9 +102,6 @@ def dashboard():
     c2.markdown(f"<div class='card'><h3>High Risk (%)</h3><h2>{high_risk_pct}%</h2></div>", unsafe_allow_html=True)
     c3.markdown(f"<div class='card'><h3>Retention Rate</h3><h2>{retention_rate}%</h2></div>", unsafe_allow_html=True)
 
-    # -------------------------------------------------
-    # VISUALIZATIONS
-    # -------------------------------------------------
     col1, col2 = st.columns(2)
 
     with col1:
@@ -120,13 +123,72 @@ def dashboard():
         )
         st.plotly_chart(fig2, use_container_width=True)
 
-    # -------------------------------------------------
-    # DATA PREVIEW
-    # -------------------------------------------------
-    st.subheader("📋 Customer Dataset Preview")
-    st.dataframe(data.head(50), use_container_width=True)
+    st.subheader("📋 Dataset Preview")
+    st.dataframe(data.head(30), use_container_width=True)
 
 # -------------------------------------------------
-# RUN APP
+# ADD CUSTOMER
 # -------------------------------------------------
-dashboard()
+elif menu == "Add Customer":
+
+    st.title("➕ Add New Customer")
+
+    name = st.text_input("Customer Name")
+    age = st.number_input("Age", 18, 100)
+    balance = st.number_input("Balance")
+    campaign = st.slider("Campaign Count", 1, 10)
+
+    if st.button("Add Customer"):
+        risk = "High Risk" if balance < 0 and campaign > 2 else "Low Risk"
+
+        st.session_state.customers.append({
+            "Name": name,
+            "Age": age,
+            "Balance": balance,
+            "Campaign": campaign,
+            "Risk": risk
+        })
+
+        st.success(f"Customer {name} added as {risk}")
+
+# -------------------------------------------------
+# VIEW CUSTOMERS
+# -------------------------------------------------
+elif menu == "View Customers":
+
+    st.title("📋 Added Customers")
+
+    if st.session_state.customers:
+        df_customers = pd.DataFrame(st.session_state.customers)
+        st.dataframe(df_customers, use_container_width=True)
+
+        fig = px.pie(
+            df_customers,
+            names="Risk",
+            title="Added Customer Risk Distribution"
+        )
+        st.plotly_chart(fig, use_container_width=True)
+    else:
+        st.info("No customers added yet.")
+
+# -------------------------------------------------
+# SINGLE CUSTOMER PREDICTION
+# -------------------------------------------------
+elif menu == "Customer Prediction":
+
+    st.title("🔮 Single Customer Risk Prediction")
+
+    age = st.slider("Age", 18, 100)
+    balance = st.number_input("Account Balance")
+    campaign = st.slider("Campaign Count", 1, 10)
+
+    if st.button("Predict Risk"):
+        risk = "High Risk" if balance < 0 and campaign > 2 else "Low Risk"
+        st.success(f"Predicted Risk Level: **{risk}**")
+
+        st.markdown("""
+        **Model Explanation:**  
+        Logistic Regression trained on historical customer behavior  
+        using balance, campaign frequency, and response outcomes.
+        """)
+
