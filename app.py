@@ -28,7 +28,7 @@ if "customers" not in st.session_state:
     st.session_state.customers = []
 
 # =================================================
-# LOAD BANK DATASET (DASHBOARD ONLY)
+# LOAD BANK DATASET (DASHBOARD)
 # =================================================
 @st.cache_data
 def load_bank_data():
@@ -80,7 +80,7 @@ st.markdown(
 )
 
 # =================================================
-# LOGIN / REGISTER
+# LOGIN / REGISTER PAGE
 # =================================================
 def login_page():
     st.markdown(
@@ -130,7 +130,6 @@ def calculate_risk(balance, campaign):
 # =================================================
 def dashboard():
 
-    # ---------- SIDEBAR ----------
     st.sidebar.success("Logged in")
     st.sidebar.write(st.session_state.current_user)
 
@@ -141,12 +140,9 @@ def dashboard():
 
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
-        st.session_state.current_user = None
         st.rerun()
 
-    # =================================================
-    # DASHBOARD PAGE (USES REAL DATASET)
-    # =================================================
+    # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
         st.title("📊 Customer Intelligence Dashboard")
 
@@ -156,38 +152,22 @@ def dashboard():
         )
 
         c1, c2, c3 = st.columns(3)
-        c1.markdown(
-            f"<div class='card'><h3>Total Customers</h3><h2>{len(bank_data)}</h2></div>",
-            unsafe_allow_html=True
-        )
-        c2.markdown(
-            f"<div class='card'><h3>High Risk</h3><h2>{(bank_data['risk']=='High Risk').mean()*100:.2f}%</h2></div>",
-            unsafe_allow_html=True
-        )
-        c3.markdown(
-            f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>",
-            unsafe_allow_html=True
-        )
+        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{len(bank_data)}</h2></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='card'><h3>High Risk</h3><h2>{(bank_data['risk']=='High Risk').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.plotly_chart(px.pie(bank_data, names="risk"), use_container_width=True)
+            st.plotly_chart(px.pie(bank_data, names="risk", title="Risk Distribution"), use_container_width=True)
         with col2:
-            st.plotly_chart(px.histogram(bank_data, x="balance"), use_container_width=True)
+            st.plotly_chart(px.histogram(bank_data, x="balance", title="Balance Distribution"), use_container_width=True)
 
-    # =================================================
-    # ADD CUSTOMER (SINGLE + MULTIPLE)
-    # =================================================
+    # ---------------- ADD CUSTOMER ----------------
     if menu == "Add Customer":
         st.title("➕ Add Customer")
 
-        count = st.number_input(
-            "How many customers do you want to add?",
-            min_value=1,
-            step=1
-        )
+        count = st.number_input("How many customers do you want to add?", min_value=1, step=1)
 
-        # SINGLE
         if count == 1:
             name = st.text_input("Customer Name")
             balance = st.number_input("Balance", value=0.0)
@@ -200,15 +180,13 @@ def dashboard():
                     "campaign": campaign,
                     "risk": calculate_risk(balance, campaign)
                 })
-                st.success("Customer added successfully")
+                st.success("Customer added")
 
-        # MULTIPLE
         else:
-            file = st.file_uploader("Upload CSV", type=["csv"])
+            file = st.file_uploader("Upload CSV (name, balance, campaign)", type=["csv"])
             if file:
                 df = pd.read_csv(file)
                 df.columns = df.columns.str.lower()
-
                 for _, row in df.iterrows():
                     st.session_state.customers.append({
                         "name": row["name"],
@@ -216,12 +194,9 @@ def dashboard():
                         "campaign": row["campaign"],
                         "risk": calculate_risk(row["balance"], row["campaign"])
                     })
+                st.success("Multiple customers added")
 
-                st.success("Multiple customers added successfully")
-
-    # =================================================
-    # VIEW + DELETE CUSTOMERS
-    # =================================================
+    # ---------------- VIEW + DELETE CUSTOMERS ----------------
     if menu == "View Customers":
         st.title("👥 View & Delete Customers")
 
@@ -232,19 +207,13 @@ def dashboard():
             st.dataframe(df, use_container_width=True)
 
             st.markdown("### 🗑 Delete Customers")
-
-            selected = st.multiselect(
-                "Select customers to delete",
-                df["name"].tolist()
-            )
+            selected = st.multiselect("Select customers to delete", df["name"].tolist())
 
             col1, col2 = st.columns(2)
-
             with col1:
                 if st.button("Delete Selected"):
                     st.session_state.customers = [
-                        c for c in st.session_state.customers
-                        if c["name"] not in selected
+                        c for c in st.session_state.customers if c["name"] not in selected
                     ]
                     st.success("Selected customers deleted")
                     st.rerun()
@@ -255,9 +224,7 @@ def dashboard():
                     st.warning("All customers deleted")
                     st.rerun()
 
-    # =================================================
-    # PREDICTION (FULL CUSTOMER DETAILS)
-    # =================================================
+    # ---------------- PREDICTION ----------------
     if menu == "Prediction":
         st.title("🔮 Risk Prediction")
 
