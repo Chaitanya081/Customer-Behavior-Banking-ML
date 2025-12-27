@@ -191,20 +191,41 @@ def dashboard():
         st.dataframe(df, use_container_width=True)
 
     # ---------------- PREDICTION ----------------
-    if menu == "Prediction":
-        st.title("🔮 Risk Prediction")
+    if menu == "View Customers":
+    st.title("👥 View Customers")
 
-        if not st.session_state.customers:
-            st.info("Add customers first")
-            return
+    if "customers" not in st.session_state or len(st.session_state.customers) == 0:
+        st.warning("No customers available")
+        return
 
-        df = pd.DataFrame(st.session_state.customers)
-        name = st.selectbox("Select Customer", df["name"])
+    df = pd.DataFrame(st.session_state.customers)
 
-        customer = df[df["name"] == name].iloc[0]
-        st.json(customer.to_dict())
+    st.subheader("📋 Customer List")
+    st.dataframe(df, use_container_width=True)
 
-        st.success(f"Predicted Risk: {customer['risk']}")
+    st.markdown("### 🗑 Delete Customers")
+
+    selected_customers = st.multiselect(
+        "Select customers to delete",
+        df["name"].tolist()
+    )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        if st.button("Delete Selected"):
+            st.session_state.customers = [
+                c for c in st.session_state.customers
+                if c["name"] not in selected_customers
+            ]
+            st.success("Selected customers deleted")
+            st.experimental_rerun()
+
+    with col2:
+        if st.button("Delete ALL"):
+            st.session_state.customers.clear()
+            st.warning("All customers deleted")
+            st.experimental_rerun()
 
 # =================================================
 # APP ROUTER
@@ -213,3 +234,4 @@ if st.session_state.logged_in:
     dashboard()
 else:
     login_page()
+
