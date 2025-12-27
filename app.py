@@ -3,74 +3,33 @@ import pandas as pd
 import plotly.express as px
 import base64
 
-# =====================================================
+# -------------------------------------------------
 # PAGE CONFIG
-# =====================================================
+# -------------------------------------------------
 st.set_page_config(
     page_title="Customer Analysis Platform",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
-# =====================================================
-# SESSION STATE INIT
-# =====================================================
+# -------------------------------------------------
+# SESSION STATE
+# -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
 
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 
+if "current_user" not in st.session_state:
+    st.session_state.current_user = None
+
 if "customers" not in st.session_state:
     st.session_state.customers = []
 
-# =====================================================
-# BACKGROUND IMAGE
-# =====================================================
-def load_bg(path):
-    with open(path, "rb") as f:
-        return base64.b64encode(f.read()).decode()
-
-bg = load_bg("images/loginimage.jpg")
-
-st.markdown(
-    f"""
-    <style>
-    .stApp {{
-        background-image: url("data:image/jpg;base64,{bg}");
-        background-size: cover;
-        background-position: center;
-    }}
-    .stApp::before {{
-        content: "";
-        position: fixed;
-        inset: 0;
-        background: rgba(0,0,0,0.65);
-        z-index: -1;
-    }}
-    .glass {{
-        background: rgba(15,23,42,0.96);
-        padding: 40px;
-        border-radius: 18px;
-        width: 450px;
-        margin: auto;
-        margin-top: 120px;
-        box-shadow: 0 30px 80px rgba(0,0,0,0.8);
-        text-align: center;
-    }}
-    .card {{
-        background:#0f172a;
-        padding:20px;
-        border-radius:14px;
-        text-align:center;
-    }}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
-
-# =====================================================
-# LOAD BANK DATASET (FOR DASHBOARD)
-# =====================================================
+# -------------------------------------------------
+# LOAD BANK DATASET (FOR LOGIC REFERENCE)
+# -------------------------------------------------
 @st.cache_data
 def load_bank_data():
     df = pd.read_csv(
@@ -84,181 +43,231 @@ def load_bank_data():
 
 bank_data = load_bank_data()
 
-# =====================================================
-# RISK LOGIC
-# =====================================================
-def calculate_risk(balance, campaign):
-    if balance < 0 and campaign >= 3:
-        return "High Risk"
-    elif campaign >= 2:
-        return "Medium Risk"
-    else:
-        return "Low Risk"
+# -------------------------------------------------
+# BACKGROUND IMAGE
+# -------------------------------------------------
+def get_base64_image(path):
+    with open(path, "rb") as f:
+        return base64.b64encode(f.read()).decode()
 
-# =====================================================
-# LOGIN PAGE
-# =====================================================
+bg_img = get_base64_image("images/loginimage.jpg")
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background-image: url("data:image/jpg;base64,{bg_img}");
+        background-size: cover;
+        background-position: center;
+    }}
+    .stApp::before {{
+        content: "";
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.7);
+        z-index: -1;
+    }}
+    .card {{
+        background:#020617;
+        padding:22px;
+        border-radius:14px;
+        color:white;
+        text-align:center;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
+# -------------------------------------------------
+# LOGIN / REGISTER
+# -------------------------------------------------
 def login_page():
     st.markdown(
         """
-        <div class="glass">
-            <h2>🔐 Customer Analysis Platform</h2>
-            <p style="color:#cbd5e1">Customer Intelligence & Risk System</p>
-        </div>
+        <div style="width:420px;margin:120px auto;
+        background:#020617;padding:30px;border-radius:18px;color:white;text-align:center;">
+        <h2>🏦 Customer Analysis Platform</h2>
+        <p>Customer Intelligence & Risk Prediction</p>
         """,
         unsafe_allow_html=True
     )
 
-    option = st.radio("Select Option", ["Login", "Register"], horizontal=True)
-
+    option = st.radio("Select Option", ["Login", "Register"])
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
     if option == "Register":
         if st.button("Register"):
-            if email in st.session_state.users:
-                st.error("User already exists")
-            else:
-                st.session_state.users[email] = password
-                st.success("Registration successful. Please login.")
+            st.session_state.users[email] = password
+            st.success("Registered successfully")
 
     if option == "Login":
         if st.button("Login"):
             if email in st.session_state.users and st.session_state.users[email] == password:
                 st.session_state.logged_in = True
-                st.experimental_rerun()
+                st.session_state.current_user = email
+                st.rerun()
             else:
                 st.error("Invalid credentials")
 
-# =====================================================
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# -------------------------------------------------
+# RISK LOGIC (REALISTIC – NOT ALWAYS LOW)
+# -------------------------------------------------
+def calculate_risk(balance, campaign):
+    if balance < 0 or campaign >= 6:
+        return "High Risk"
+    elif balance < 5000 and campaign >= 3:
+        return "Medium Risk"
+    else:
+        return "Low Risk"
+
+# -------------------------------------------------
 # DASHBOARD
-# =====================================================
+# -------------------------------------------------
 def dashboard():
+
+    st.sidebar.success("Logged in")
+    st.sidebar.write(st.session_state.current_user)
 
     menu = st.sidebar.radio(
         "Navigation",
         ["Dashboard", "Add Customer", "View Customers", "Prediction"]
     )
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
-        st.experimental_rerun()
+        st.rerun()
 
-    # ================= DASHBOARD =================
+    # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
         st.title("📊 Customer Intelligence Dashboard")
 
-        # Risk logic on dataset
-        data = bank_data.copy()
-        data["risk"] = "Low Risk"
-        data.loc[(data["balance"] < 0) & (data["campaign"] > 2), "risk"] = "High Risk"
-
-        total = len(data)
-        high_risk_pct = round((data["risk"] == "High Risk").mean() * 100, 2)
-        retention = round((data["y"] == "yes").mean() * 100, 2)
+        bank_data["risk"] = bank_data.apply(
+            lambda x: calculate_risk(x["balance"], x["campaign"]),
+            axis=1
+        )
 
         c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{total}</h2></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='card'><h3>High Risk (%)</h3><h2>{high_risk_pct}%</h2></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='card'><h3>Retention Rate</h3><h2>{retention}%</h2></div>", unsafe_allow_html=True)
+        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{len(bank_data)}</h2></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='card'><h3>High Risk</h3><h2>{(bank_data['risk']=='High Risk').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
 
-        col1, col2 = st.columns(2)
-        with col1:
-            fig1 = px.pie(data, names="risk", title="Risk Distribution")
-            st.plotly_chart(fig1, use_container_width=True)
+        st.plotly_chart(px.pie(bank_data, names="risk"), use_container_width=True)
 
-        with col2:
-            fig2 = px.histogram(data, x="balance", title="Balance Distribution")
-            st.plotly_chart(fig2, use_container_width=True)
-
-        st.subheader("📋 Dataset Preview")
-        st.dataframe(data.head(20), use_container_width=True)
-
-    # ================= ADD CUSTOMER =================
+    # ---------------- ADD CUSTOMER ----------------
     if menu == "Add Customer":
         st.title("➕ Add Customer")
 
-        name = st.text_input("Customer Name")
-        balance = st.number_input("Balance", value=0.0)
-        campaign = st.number_input("Campaign Calls", value=0, step=1)
+        count = st.number_input(
+            "How many customers do you want to add?",
+            min_value=1,
+            step=1
+        )
 
-        if st.button("Add Customer"):
-            st.session_state.customers.append({
-                "name": name,
-                "balance": balance,
-                "campaign": campaign,
-                "risk": calculate_risk(balance, campaign)
-            })
-            st.success("Customer added")
+        # SINGLE CUSTOMER
+        if count == 1:
+            name = st.text_input("Customer Name")
+            balance = st.number_input("Balance", value=0.0)
+            campaign = st.slider("Campaign Calls", 1, 10)
 
-        st.markdown("---")
-        st.subheader("📂 Upload Multiple Customers (CSV)")
-        file = st.file_uploader("Upload CSV", type=["csv"])
-
-        if file:
-            df = pd.read_csv(file)
-            for _, r in df.iterrows():
+            if st.button("Add Customer"):
                 st.session_state.customers.append({
-                    "name": r["name"],
-                    "balance": r["balance"],
-                    "campaign": r["campaign"],
-                    "risk": calculate_risk(r["balance"], r["campaign"])
+                    "name": name,
+                    "balance": balance,
+                    "campaign": campaign,
+                    "risk": calculate_risk(balance, campaign)
                 })
-            st.success("CSV customers added")
+                st.success("Customer added successfully")
 
-    # ================= VIEW & DELETE =================
-    if menu == "View Customers":
-        st.title("👥 View & Delete Customers")
+        # MULTIPLE CUSTOMERS
+        else:
+            file = st.file_uploader("Upload CSV for Multiple Customers", type=["csv"])
+            if file:
+                df = pd.read_csv(file)
+                df.columns = df.columns.str.lower()
 
-        if not st.session_state.customers:
-            st.info("No customers added yet")
-            return
+                for _, row in df.iterrows():
+                    st.session_state.customers.append({
+                        "name": row["name"],
+                        "balance": row["balance"],
+                        "campaign": row["campaign"],
+                        "risk": calculate_risk(row["balance"], row["campaign"])
+                    })
 
+                st.success("Multiple customers added successfully")
+
+   # ---------------- VIEW + DELETE CUSTOMERS ----------------
+if menu == "View Customers":
+    st.title("👥 View & Delete Customers")
+
+    if not st.session_state.customers:
+        st.info("No customers added")
+    else:
         df = pd.DataFrame(st.session_state.customers)
+
+        # Show customer table
+        st.subheader("📋 Customer List")
         st.dataframe(df, use_container_width=True)
 
-        selected = st.multiselect(
+        st.markdown("---")
+        st.subheader("🗑 Delete Customers")
+
+        # Select customers to delete
+        selected_customers = st.multiselect(
             "Select customers to delete",
-            df["name"].tolist()
+            options=df["name"].tolist()
         )
 
         col1, col2 = st.columns(2)
+
+        # Delete selected customers
         with col1:
             if st.button("Delete Selected"):
                 st.session_state.customers = [
                     c for c in st.session_state.customers
-                    if c["name"] not in selected
+                    if c["name"] not in selected_customers
                 ]
-                st.experimental_rerun()
+                st.success("Selected customers deleted")
+                st.rerun()
 
+        # Delete all customers
         with col2:
-            if st.button("Delete ALL"):
+            if st.button("Delete ALL Customers"):
                 st.session_state.customers.clear()
-                st.experimental_rerun()
+                st.warning("All customers deleted")
+                st.rerun()
 
-    # ================= PREDICTION =================
+    # ---------------- PREDICTION ----------------
     if menu == "Prediction":
         st.title("🔮 Risk Prediction")
 
-        name = st.text_input("Customer Name")
-        balance = st.number_input("Balance", value=0.0)
-        campaign = st.number_input("Campaign Calls", value=0, step=1)
+        if not st.session_state.customers:
+            st.warning("Please add customers first")
+            return
 
-        if st.button("Predict"):
-            risk = calculate_risk(balance, campaign)
-            st.success(f"Customer **{name}** → **{risk}**")
+        df = pd.DataFrame(st.session_state.customers)
+        selected = st.selectbox("Select Customer", df["name"])
+        cust = df[df["name"] == selected].iloc[0]
 
-            st.markdown("### Customer Details")
-            st.json({
-                "name": name,
-                "balance": balance,
-                "campaign": campaign,
-                "predicted_risk": risk
-            })
+        st.markdown(
+            f"""
+            <div style="background:#020617;padding:24px;border-radius:16px;color:white;">
+            <b>Name:</b> {cust['name']}<br>
+            <b>Balance:</b> {cust['balance']}<br>
+            <b>Campaign Calls:</b> {cust['campaign']}<br>
+            <b>Predicted Risk:</b>
+            <span style="font-size:20px;font-weight:800;">{cust['risk']}</span>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
-# =====================================================
-# ROUTER
-# =====================================================
+# -------------------------------------------------
+# APP ROUTER
+# -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
 else:
