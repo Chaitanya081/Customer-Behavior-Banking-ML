@@ -3,18 +3,18 @@ import pandas as pd
 import plotly.express as px
 import base64
 
-# -------------------------------------------------
+# =================================================
 # PAGE CONFIG
-# -------------------------------------------------
+# =================================================
 st.set_page_config(
     page_title="Customer Analysis Platform",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# -------------------------------------------------
+# =================================================
 # SESSION STATE
-# -------------------------------------------------
+# =================================================
 if "users" not in st.session_state:
     st.session_state.users = {}
 
@@ -27,9 +27,9 @@ if "current_user" not in st.session_state:
 if "customers" not in st.session_state:
     st.session_state.customers = []
 
-# -------------------------------------------------
-# LOAD BANK DATASET (FOR LOGIC REFERENCE)
-# -------------------------------------------------
+# =================================================
+# LOAD BANK DATASET (DASHBOARD ONLY)
+# =================================================
 @st.cache_data
 def load_bank_data():
     df = pd.read_csv(
@@ -43,9 +43,9 @@ def load_bank_data():
 
 bank_data = load_bank_data()
 
-# -------------------------------------------------
+# =================================================
 # BACKGROUND IMAGE
-# -------------------------------------------------
+# =================================================
 def get_base64_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
@@ -79,14 +79,15 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# -------------------------------------------------
+# =================================================
 # LOGIN / REGISTER
-# -------------------------------------------------
+# =================================================
 def login_page():
     st.markdown(
         """
         <div style="width:420px;margin:120px auto;
-        background:#020617;padding:30px;border-radius:18px;color:white;text-align:center;">
+        background:#020617;padding:30px;border-radius:18px;
+        color:white;text-align:center;">
         <h2>🏦 Customer Analysis Platform</h2>
         <p>Customer Intelligence & Risk Prediction</p>
         """,
@@ -113,9 +114,9 @@ def login_page():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# -------------------------------------------------
-# RISK LOGIC (REALISTIC – NOT ALWAYS LOW)
-# -------------------------------------------------
+# =================================================
+# RISK LOGIC
+# =================================================
 def calculate_risk(balance, campaign):
     if balance < 0 or campaign >= 6:
         return "High Risk"
@@ -124,11 +125,12 @@ def calculate_risk(balance, campaign):
     else:
         return "Low Risk"
 
-# -------------------------------------------------
+# =================================================
 # DASHBOARD
-# -------------------------------------------------
+# =================================================
 def dashboard():
 
+    # ---------- SIDEBAR ----------
     st.sidebar.success("Logged in")
     st.sidebar.write(st.session_state.current_user)
 
@@ -139,9 +141,12 @@ def dashboard():
 
     if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
+        st.session_state.current_user = None
         st.rerun()
 
-    # ---------------- DASHBOARD ----------------
+    # =================================================
+    # DASHBOARD PAGE (USES REAL DATASET)
+    # =================================================
     if menu == "Dashboard":
         st.title("📊 Customer Intelligence Dashboard")
 
@@ -151,13 +156,28 @@ def dashboard():
         )
 
         c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{len(bank_data)}</h2></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='card'><h3>High Risk</h3><h2>{(bank_data['risk']=='High Risk').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
+        c1.markdown(
+            f"<div class='card'><h3>Total Customers</h3><h2>{len(bank_data)}</h2></div>",
+            unsafe_allow_html=True
+        )
+        c2.markdown(
+            f"<div class='card'><h3>High Risk</h3><h2>{(bank_data['risk']=='High Risk').mean()*100:.2f}%</h2></div>",
+            unsafe_allow_html=True
+        )
+        c3.markdown(
+            f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>",
+            unsafe_allow_html=True
+        )
 
-        st.plotly_chart(px.pie(bank_data, names="risk"), use_container_width=True)
+        col1, col2 = st.columns(2)
+        with col1:
+            st.plotly_chart(px.pie(bank_data, names="risk"), use_container_width=True)
+        with col2:
+            st.plotly_chart(px.histogram(bank_data, x="balance"), use_container_width=True)
 
-    # ---------------- ADD CUSTOMER ----------------
+    # =================================================
+    # ADD CUSTOMER (SINGLE + MULTIPLE)
+    # =================================================
     if menu == "Add Customer":
         st.title("➕ Add Customer")
 
@@ -167,7 +187,7 @@ def dashboard():
             step=1
         )
 
-        # SINGLE CUSTOMER
+        # SINGLE
         if count == 1:
             name = st.text_input("Customer Name")
             balance = st.number_input("Balance", value=0.0)
@@ -182,9 +202,9 @@ def dashboard():
                 })
                 st.success("Customer added successfully")
 
-        # MULTIPLE CUSTOMERS
+        # MULTIPLE
         else:
-            file = st.file_uploader("Upload CSV for Multiple Customers", type=["csv"])
+            file = st.file_uploader("Upload CSV", type=["csv"])
             if file:
                 df = pd.read_csv(file)
                 df.columns = df.columns.str.lower()
@@ -199,54 +219,51 @@ def dashboard():
 
                 st.success("Multiple customers added successfully")
 
-   # ---------------- VIEW + DELETE CUSTOMERS ----------------
-if menu == "View Customers":
-    st.title("👥 View & Delete Customers")
+    # =================================================
+    # VIEW + DELETE CUSTOMERS
+    # =================================================
+    if menu == "View Customers":
+        st.title("👥 View & Delete Customers")
 
-    if not st.session_state.customers:
-        st.info("No customers added")
-    else:
-        df = pd.DataFrame(st.session_state.customers)
+        if not st.session_state.customers:
+            st.info("No customers added")
+        else:
+            df = pd.DataFrame(st.session_state.customers)
+            st.dataframe(df, use_container_width=True)
 
-        # Show customer table
-        st.subheader("📋 Customer List")
-        st.dataframe(df, use_container_width=True)
+            st.markdown("### 🗑 Delete Customers")
 
-        st.markdown("---")
-        st.subheader("🗑 Delete Customers")
+            selected = st.multiselect(
+                "Select customers to delete",
+                df["name"].tolist()
+            )
 
-        # Select customers to delete
-        selected_customers = st.multiselect(
-            "Select customers to delete",
-            options=df["name"].tolist()
-        )
+            col1, col2 = st.columns(2)
 
-        col1, col2 = st.columns(2)
+            with col1:
+                if st.button("Delete Selected"):
+                    st.session_state.customers = [
+                        c for c in st.session_state.customers
+                        if c["name"] not in selected
+                    ]
+                    st.success("Selected customers deleted")
+                    st.rerun()
 
-        # Delete selected customers
-        with col1:
-            if st.button("Delete Selected"):
-                st.session_state.customers = [
-                    c for c in st.session_state.customers
-                    if c["name"] not in selected_customers
-                ]
-                st.success("Selected customers deleted")
-                st.rerun()
+            with col2:
+                if st.button("Delete ALL"):
+                    st.session_state.customers.clear()
+                    st.warning("All customers deleted")
+                    st.rerun()
 
-        # Delete all customers
-        with col2:
-            if st.button("Delete ALL Customers"):
-                st.session_state.customers.clear()
-                st.warning("All customers deleted")
-                st.rerun()
-
-    # ---------------- PREDICTION ----------------
+    # =================================================
+    # PREDICTION (FULL CUSTOMER DETAILS)
+    # =================================================
     if menu == "Prediction":
         st.title("🔮 Risk Prediction")
 
         if not st.session_state.customers:
             st.warning("Please add customers first")
-            return
+            st.stop()
 
         df = pd.DataFrame(st.session_state.customers)
         selected = st.selectbox("Select Customer", df["name"])
@@ -254,20 +271,24 @@ if menu == "View Customers":
 
         st.markdown(
             f"""
-            <div style="background:#020617;padding:24px;border-radius:16px;color:white;">
+            <div style="background:#020617;padding:24px;
+            border-radius:16px;color:white;">
+            <h3>Customer Details</h3>
             <b>Name:</b> {cust['name']}<br>
             <b>Balance:</b> {cust['balance']}<br>
             <b>Campaign Calls:</b> {cust['campaign']}<br>
             <b>Predicted Risk:</b>
-            <span style="font-size:20px;font-weight:800;">{cust['risk']}</span>
+            <span style="font-size:22px;font-weight:800;">
+            {cust['risk']}
+            </span>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-# -------------------------------------------------
+# =================================================
 # APP ROUTER
-# -------------------------------------------------
+# =================================================
 if st.session_state.logged_in:
     dashboard()
 else:
