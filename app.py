@@ -15,48 +15,23 @@ st.set_page_config(
 # -------------------------------------------------
 # SESSION STATE
 # -------------------------------------------------
-if "users" not in st.session_state:
-    st.session_state.users = {}
-
 if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-
-if "current_user" not in st.session_state:
-    st.session_state.current_user = None
+    st.session_state.logged_in = True   # keep logged in for demo
 
 # -------------------------------------------------
-# 🔒 FAIL-SAFE DATA LOADER (THIS FIXES EVERYTHING)
+# LOAD DATASET (CORRECT WAY FOR YOUR CSV)
 # -------------------------------------------------
 @st.cache_data
 def load_data():
     df = pd.read_csv(
         "data/bank_marketing.csv",
         sep=";",
-        engine="python",
-        header=0
+        quotechar='"',
+        engine="python"
     )
 
-    # If file loaded as ONE column → split manually
-    if len(df.columns) == 1:
-        st.warning("⚠ CSV detected as single column. Auto-fixing format...")
-
-        df = df.iloc[:, 0].str.split(";", expand=True)
-
-        # Manually assign correct column names
-        df.columns = [
-            "age","job","marital","education","default","balance",
-            "housing","loan","contact","day","month","duration",
-            "campaign","pdays","previous","poutcome","y"
-        ]
-
-    # Normalize column names
+    # Clean column names
     df.columns = df.columns.str.strip().str.lower()
-
-    # Convert numeric columns safely
-    numeric_cols = ["age","balance","day","duration","campaign","pdays","previous"]
-    for col in numeric_cols:
-        df[col] = pd.to_numeric(df[col], errors="coerce")
-
     return df
 
 data = load_data()
@@ -87,7 +62,7 @@ st.markdown(
     }}
     .card {{
         background: #0f172a;
-        padding: 20px;
+        padding: 22px;
         border-radius: 14px;
         text-align: center;
     }}
@@ -97,61 +72,18 @@ st.markdown(
 )
 
 # -------------------------------------------------
-# LOGIN PAGE
-# -------------------------------------------------
-def login_page():
-    st.markdown(
-        """
-        <div style="width:420px;margin:120px auto;padding:35px;
-        background:rgba(15,23,42,0.95);border-radius:16px;text-align:center;">
-        <h2>Customer Analysis Platform</h2>
-        <p>Customer Intelligence & Risk Prediction System</p>
-        """,
-        unsafe_allow_html=True
-    )
-
-    option = st.radio("Select Option", ["Login", "Register"])
-    email = st.text_input("Email")
-    password = st.text_input("Password", type="password")
-
-    if option == "Register" and st.button("Register"):
-        st.session_state.users[email] = password
-        st.success("Registered successfully")
-
-    if option == "Login" and st.button("Login"):
-        if st.session_state.users.get(email) == password:
-            st.session_state.logged_in = True
-            st.session_state.current_user = email
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# -------------------------------------------------
 # DASHBOARD
 # -------------------------------------------------
 def dashboard():
-    st.sidebar.success("Logged in")
-    st.sidebar.write(st.session_state.current_user)
 
-    menu = st.sidebar.radio(
-        "Navigation",
-        ["Dashboard", "View Customers", "Customer Prediction"]
-    )
-
-    if st.sidebar.button("🚪 Logout"):
-        st.session_state.logged_in = False
-        st.session_state.current_user = None
-        st.rerun()
+    st.title("📊 Customer Intelligence Dashboard")
 
     # -------------------------------------------------
-    # SAFE RISK LOGIC (IMPOSSIBLE TO FAIL)
+    # RISK LOGIC (BASED ON REAL DATA)
     # -------------------------------------------------
     data["risk"] = "Low Risk"
     data.loc[
-        (data["balance"].fillna(0) < 0) &
-        (data["campaign"].fillna(0) > 2),
+        (data["balance"] < 0) & (data["campaign"] > 2),
         "risk"
     ] = "High Risk"
 
@@ -159,32 +91,42 @@ def dashboard():
     high_risk_pct = round((data["risk"] == "High Risk").mean() * 100, 2)
     retention_rate = round((data["y"] == "yes").mean() * 100, 2)
 
-    if menu == "Dashboard":
-        st.title("📊 Customer Intelligence Dashboard")
+    c1, c2, c3 = st.columns(3)
+    c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{total_customers}</h2></div>", unsafe_allow_html=True)
+    c2.markdown(f"<div class='card'><h3>High Risk (%)</h3><h2>{high_risk_pct}%</h2></div>", unsafe_allow_html=True)
+    c3.markdown(f"<div class='card'><h3>Retention Rate</h3><h2>{retention_rate}%</h2></div>", unsafe_allow_html=True)
 
-        c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{total_customers}</h2></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='card'><h3>High Risk</h3><h2>{high_risk_pct}%</h2></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='card'><h3>Retention Rate</h3><h2>{retention_rate}%</h2></div>", unsafe_allow_html=True)
+    # -------------------------------------------------
+    # VISUALIZATIONS
+    # -------------------------------------------------
+    col1, col2 = st.columns(2)
 
-        fig = px.pie(data, names="risk", hole=0.4, title="Customer Risk Distribution")
-        st.plotly_chart(fig, use_container_width=True)
+    with col1:
+        fig1 = px.pie(
+            data,
+            names="risk",
+            title="Customer Risk Distribution",
+            color="risk",
+            color_discrete_map={"High Risk": "#ef4444", "Low Risk": "#22c55e"}
+        )
+        st.plotly_chart(fig1, use_container_width=True)
 
-    if menu == "View Customers":
-        st.dataframe(data.head(50), use_container_width=True)
+    with col2:
+        fig2 = px.histogram(
+            data,
+            x="balance",
+            nbins=40,
+            title="Balance Distribution"
+        )
+        st.plotly_chart(fig2, use_container_width=True)
 
-    if menu == "Customer Prediction":
-        balance = st.number_input("Account Balance")
-        campaign = st.slider("Campaign Contacts", 1, 10)
-
-        if st.button("Predict"):
-            risk = "High Risk" if balance < 0 and campaign > 2 else "Low Risk"
-            st.success(f"Predicted Risk: **{risk}**")
+    # -------------------------------------------------
+    # DATA PREVIEW
+    # -------------------------------------------------
+    st.subheader("📋 Customer Dataset Preview")
+    st.dataframe(data.head(50), use_container_width=True)
 
 # -------------------------------------------------
-# ROUTER
+# RUN APP
 # -------------------------------------------------
-if st.session_state.logged_in:
-    dashboard()
-else:
-    login_page()
+dashboard()
