@@ -51,6 +51,7 @@ st.markdown(
         padding:20px;
         border-radius:14px;
         text-align:center;
+        color:white;
     }}
     </style>
     """,
@@ -75,7 +76,6 @@ def login_page():
     st.markdown("## 🔐 Customer Analysis Platform")
 
     option = st.radio("Select Option", ["Login", "Register"])
-
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
@@ -91,7 +91,7 @@ def login_page():
         if st.button("Login"):
             if email in st.session_state.users and st.session_state.users[email] == password:
                 st.session_state.logged_in = True
-                st.experimental_rerun()
+                st.rerun()
             else:
                 st.error("Invalid credentials")
 
@@ -106,7 +106,7 @@ def dashboard():
 
     if st.sidebar.button("Logout"):
         st.session_state.logged_in = False
-        st.experimental_rerun()
+        st.rerun()
 
     # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
@@ -129,7 +129,7 @@ def dashboard():
         st.plotly_chart(fig, use_container_width=True)
 
     # ---------------- ADD CUSTOMER ----------------
-    if menu == "Add Customer":
+    elif menu == "Add Customer":
         st.title("➕ Add Customer")
 
         name = st.text_input("Customer Name")
@@ -160,72 +160,62 @@ def dashboard():
                 })
             st.success("CSV customers added")
 
-    # ---------------- VIEW + DELETE ----------------
-    if menu == "View Customers":
+    # ---------------- VIEW & DELETE ----------------
+    elif menu == "View Customers":
         st.title("👥 View & Delete Customers")
 
         if not st.session_state.customers:
-            st.info("No customers available")
+            st.warning("No customers available")
             return
 
         df = pd.DataFrame(st.session_state.customers)
+        st.dataframe(df, use_container_width=True)
 
         selected = st.multiselect(
             "Select customers to delete",
             df["name"].tolist()
         )
 
-        if st.button("🗑 Delete Selected Customers"):
-            st.session_state.customers = [
-                c for c in st.session_state.customers
-                if c["name"] not in selected
-            ]
-            st.success("Selected customers deleted")
-            st.experimental_rerun()
+        col1, col2 = st.columns(2)
 
-        if st.button("⚠ Delete ALL Customers"):
-            st.session_state.customers.clear()
-            st.warning("All customers deleted")
-            st.experimental_rerun()
+        with col1:
+            if st.button("🗑 Delete Selected"):
+                st.session_state.customers = [
+                    c for c in st.session_state.customers
+                    if c["name"] not in selected
+                ]
+                st.success("Selected customers deleted")
+                st.rerun()
 
-        st.dataframe(df, use_container_width=True)
+        with col2:
+            if st.button("⚠ Delete ALL"):
+                st.session_state.customers.clear()
+                st.warning("All customers deleted")
+                st.rerun()
 
     # ---------------- PREDICTION ----------------
-    if menu == "View Customers":
-    st.title("👥 View Customers")
+    elif menu == "Prediction":
+        st.title("🔮 Risk Prediction")
 
-    if "customers" not in st.session_state or len(st.session_state.customers) == 0:
-        st.warning("No customers available")
-        return
+        name = st.text_input("Customer Name")
+        balance = st.number_input("Balance", 0.0)
+        campaign = st.number_input("Campaign Calls", 0)
 
-    df = pd.DataFrame(st.session_state.customers)
+        if st.button("Predict"):
+            risk = calculate_risk(balance, campaign)
 
-    st.subheader("📋 Customer List")
-    st.dataframe(df, use_container_width=True)
-
-    st.markdown("### 🗑 Delete Customers")
-
-    selected_customers = st.multiselect(
-        "Select customers to delete",
-        df["name"].tolist()
-    )
-
-    col1, col2 = st.columns(2)
-
-    with col1:
-        if st.button("Delete Selected"):
-            st.session_state.customers = [
-                c for c in st.session_state.customers
-                if c["name"] not in selected_customers
-            ]
-            st.success("Selected customers deleted")
-            st.experimental_rerun()
-
-    with col2:
-        if st.button("Delete ALL"):
-            st.session_state.customers.clear()
-            st.warning("All customers deleted")
-            st.experimental_rerun()
+            st.markdown(
+                f"""
+                <div class='card'>
+                <h3>Prediction Result</h3>
+                <p><b>Name:</b> {name}</p>
+                <p><b>Balance:</b> {balance}</p>
+                <p><b>Campaign Calls:</b> {campaign}</p>
+                <h2>{risk}</h2>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
 # =================================================
 # APP ROUTER
@@ -234,4 +224,3 @@ if st.session_state.logged_in:
     dashboard()
 else:
     login_page()
-
