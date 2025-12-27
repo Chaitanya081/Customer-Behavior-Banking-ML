@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # -------------------------------------------------
-# SESSION STATE
+# SESSION STATE INIT (NO AUTO LOGIN)
 # -------------------------------------------------
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -28,7 +28,7 @@ if "customers" not in st.session_state:
     st.session_state.customers = []
 
 # -------------------------------------------------
-# LOAD DATASET (YOUR FORMAT – FIXED)
+# LOAD DATASET (YOUR FORMAT)
 # -------------------------------------------------
 @st.cache_data
 def load_data():
@@ -44,7 +44,7 @@ def load_data():
 data = load_data()
 
 # -------------------------------------------------
-# BACKGROUND IMAGE (BASE64 – ALWAYS LOADS)
+# BACKGROUND IMAGE
 # -------------------------------------------------
 def get_base64_image(path):
     with open(path, "rb") as f:
@@ -69,7 +69,7 @@ st.markdown(
     }}
     .card {{
         background: #0f172a;
-        padding: 20px;
+        padding: 22px;
         border-radius: 14px;
         text-align: center;
     }}
@@ -85,10 +85,8 @@ def login_page():
     st.markdown(
         """
         <div class="card" style="max-width:420px;margin:120px auto;">
-            <h2 style="text-align:center;">📊 Customer Analysis Platform</h2>
-            <p style="text-align:center;color:#cbd5e1;">
-                Customer Intelligence & Risk Prediction
-            </p>
+            <h2>📊 Customer Analysis Platform</h2>
+            <p style="color:#cbd5e1;">Customer Intelligence & Risk Prediction</p>
         """,
         unsafe_allow_html=True
     )
@@ -103,7 +101,7 @@ def login_page():
                 st.error("User already exists")
             else:
                 st.session_state.users[email] = password
-                st.success("Registered successfully. Please login.")
+                st.success("Registration successful. Please login.")
 
     if option == "Login":
         if st.button("Login"):
@@ -134,9 +132,7 @@ def dashboard():
         st.session_state.current_user = None
         st.rerun()
 
-    # -------------------------------------------------
-    # RISK LOGIC (REAL, SAFE)
-    # -------------------------------------------------
+    # ---------------- RISK LOGIC ----------------
     df = data.copy()
     df["risk"] = "Low Risk"
     df.loc[
@@ -148,9 +144,7 @@ def dashboard():
     high_risk_pct = round((df["risk"] == "High Risk").mean() * 100, 2)
     retention_rate = round((df["y"] == "yes").mean() * 100, 2)
 
-    # -------------------------------------------------
-    # DASHBOARD PAGE
-    # -------------------------------------------------
+    # ---------------- DASHBOARD ----------------
     if menu == "Dashboard":
         st.title("📊 Customer Intelligence Dashboard")
 
@@ -160,75 +154,45 @@ def dashboard():
         c3.markdown(f"<div class='card'><h3>Retention Rate</h3><h2>{retention_rate}%</h2></div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
-
         with col1:
-            fig1 = px.pie(
-                df,
-                names="risk",
-                title="Customer Risk Distribution",
-                color="risk",
-                color_discrete_map={"High Risk": "#ef4444", "Low Risk": "#22c55e"}
-            )
-            st.plotly_chart(fig1, use_container_width=True)
-
+            st.plotly_chart(px.pie(df, names="risk", title="Risk Distribution"), use_container_width=True)
         with col2:
-            fig2 = px.histogram(
-                df,
-                x="balance",
-                nbins=40,
-                title="Balance Distribution"
-            )
-            st.plotly_chart(fig2, use_container_width=True)
+            st.plotly_chart(px.histogram(df, x="balance", title="Balance Distribution"), use_container_width=True)
 
-    # -------------------------------------------------
-    # ADD CUSTOMER
-    # -------------------------------------------------
+    # ---------------- ADD CUSTOMER ----------------
     if menu == "Add Customer":
-        st.title("➕ Add New Customer")
-
-        name = st.text_input("Customer Name")
+        st.title("➕ Add Customer")
+        name = st.text_input("Name")
         age = st.number_input("Age", 18, 100)
         balance = st.number_input("Balance")
         campaign = st.slider("Campaign Contacts", 1, 10)
 
-        if st.button("Add Customer"):
+        if st.button("Add"):
             risk = "High Risk" if balance < 0 and campaign > 2 else "Low Risk"
-            st.session_state.customers.append({
-                "name": name,
-                "age": age,
-                "balance": balance,
-                "campaign": campaign,
-                "risk": risk
-            })
-            st.success("Customer added successfully")
+            st.session_state.customers.append(
+                {"name": name, "age": age, "balance": balance, "campaign": campaign, "risk": risk}
+            )
+            st.success("Customer added")
 
-    # -------------------------------------------------
-    # VIEW CUSTOMERS
-    # -------------------------------------------------
+    # ---------------- VIEW CUSTOMERS ----------------
     if menu == "View Customers":
-        st.title("📋 Added Customers")
-
+        st.title("📋 Customers")
         if st.session_state.customers:
             st.dataframe(pd.DataFrame(st.session_state.customers), use_container_width=True)
         else:
-            st.info("No customers added yet.")
+            st.info("No customers added yet")
 
-    # -------------------------------------------------
-    # SINGLE CUSTOMER PREDICTION
-    # -------------------------------------------------
+    # ---------------- PREDICT ----------------
     if menu == "Predict Customer":
-        st.title("🔮 Single Customer Risk Prediction")
-
-        age = st.slider("Age", 18, 100)
+        st.title("🔮 Predict Risk")
         balance = st.number_input("Balance")
-        campaign = st.slider("Campaign Contacts", 1, 10)
-
-        if st.button("Predict Risk"):
+        campaign = st.slider("Campaign", 1, 10)
+        if st.button("Predict"):
             risk = "High Risk" if balance < 0 and campaign > 2 else "Low Risk"
-            st.success(f"Predicted Risk: **{risk}**")
+            st.success(f"Predicted Risk: {risk}")
 
 # -------------------------------------------------
-# APP ROUTER
+# ROUTER (THIS IS THE KEY PART)
 # -------------------------------------------------
 if st.session_state.logged_in:
     dashboard()
