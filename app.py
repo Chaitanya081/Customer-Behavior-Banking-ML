@@ -180,59 +180,68 @@ def dashboard():
         st.subheader("📋 Sample Dataset (First 50 Records)")
         st.dataframe(bank_data.head(50), use_container_width=True)
 
-    # ---------------- ADD CUSTOMER ----------------
-    if menu == "Add Customer":
-        st.title("➕ Add Customer")
+# ---------------- ADD CUSTOMER (FIXED & STABLE) ----------------
+if menu == "Add Customer":
+    st.title("➕ Add Customer")
 
-        st.markdown(f"**Customers added so far:** {len(st.session_state.customers)}")
+    st.success(f"Total customers added: {len(st.session_state.customers)}")
 
-        mode = st.radio(
-            "Add Mode",
-            ["Single Customer", "Multiple Customers (CSV)"],
-            horizontal=True
-        )
+    add_mode = st.radio(
+        "Choose add mode",
+        ["Single Customer", "Multiple Customers (CSV)"],
+        horizontal=True
+    )
 
-        # SINGLE CUSTOMER
-        if mode == "Single Customer":
+    # ========== SINGLE CUSTOMER (FORM FIX) ==========
+    if add_mode == "Single Customer":
+        with st.form("single_customer_form", clear_on_submit=True):
             name = st.text_input("Customer Name")
+            age = st.number_input("Age", min_value=18, max_value=100)
             balance = st.number_input("Balance", value=0.0)
             campaign = st.slider("Campaign Calls", 1, 10)
 
-            if st.button("Add Customer"):
+            submit = st.form_submit_button("Add Customer")
+
+            if submit:
                 st.session_state.customers.append({
                     "name": name,
+                    "age": age,
                     "balance": balance,
                     "campaign": campaign,
                     "risk": calculate_risk(balance, campaign)
                 })
-                st.success(f"Customer '{name}' added")
+                st.success(f"Customer '{name}' added successfully")
 
-        # MULTIPLE CUSTOMERS
-        else:
-            file = st.file_uploader(
-                "Upload CSV (columns: name, balance, campaign)",
-                type=["csv"]
-            )
-            if file:
-                df = pd.read_csv(file)
-                df.columns = df.columns.str.lower()
+    # ========== MULTIPLE CUSTOMERS ==========
+    if add_mode == "Multiple Customers (CSV)":
+        file = st.file_uploader(
+            "Upload CSV (columns: name, age, balance, campaign)",
+            type=["csv"]
+        )
 
-                if st.button("Add All Customers"):
-                    for _, row in df.iterrows():
-                        st.session_state.customers.append({
-                            "name": row["name"],
-                            "balance": row["balance"],
-                            "campaign": row["campaign"],
-                            "risk": calculate_risk(row["balance"], row["campaign"])
-                        })
-                    st.success("Multiple customers added successfully")
+        if file:
+            df = pd.read_csv(file)
+            df.columns = df.columns.str.lower()
 
-        if st.session_state.customers:
-            st.subheader("📋 Added Customers (Live)")
-            st.dataframe(
-                pd.DataFrame(st.session_state.customers),
-                use_container_width=True
-            )
+            if st.button("Add All Customers"):
+                for _, row in df.iterrows():
+                    st.session_state.customers.append({
+                        "name": row["name"],
+                        "age": row["age"],
+                        "balance": row["balance"],
+                        "campaign": row["campaign"],
+                        "risk": calculate_risk(row["balance"], row["campaign"])
+                    })
+                st.success(f"{len(df)} customers added successfully")
+
+    # ========== LIVE PREVIEW ==========
+    if st.session_state.customers:
+        st.subheader("📋 Customers Added (Live)")
+        st.dataframe(
+            pd.DataFrame(st.session_state.customers),
+            use_container_width=True
+        )
+
 
     # ---------------- VIEW + DELETE CUSTOMERS ----------------
     if menu == "View Customers":
@@ -302,3 +311,4 @@ if st.session_state.logged_in:
     dashboard()
 else:
     login_page()
+
