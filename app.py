@@ -1,9 +1,8 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.express as px
-import sqlite3
 import base64
+import sqlite3
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import train_test_split
@@ -19,7 +18,7 @@ st.set_page_config(
 )
 
 # =================================================
-# DATABASE (LOGIN PERSISTENCE)
+# DATABASE (USER PERSISTENCE)
 # =================================================
 conn = sqlite3.connect("users.db", check_same_thread=False)
 cur = conn.cursor()
@@ -45,30 +44,30 @@ if "customers" not in st.session_state:
     st.session_state.customers = []
 
 # =================================================
-# LOAD DATASET
+# LOAD BANK DATASET
 # =================================================
 @st.cache_data
-def load_data():
+def load_bank_data():
     df = pd.read_csv("data/bank_marketing.csv", sep=";")
     df.columns = df.columns.str.lower()
     return df
 
-bank_data = load_data()
+bank_data = load_bank_data()
 
 # =================================================
 # BACKGROUND IMAGE
 # =================================================
-def bg_image(path):
+def get_base64_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-bg = bg_image("images/loginimage.jpg")
+bg_img = get_base64_image("images/loginimage.jpg")
 
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-image: url("data:image/jpg;base64,{bg}");
+        background-image: url("data:image/jpg;base64,{bg_img}");
         background-size: cover;
     }}
     .stApp::before {{
@@ -91,20 +90,21 @@ st.markdown(
 )
 
 # =================================================
-# LOGIN / REGISTER
+# LOGIN / REGISTER (FIXED)
 # =================================================
 def login_page():
     st.markdown(
         """
         <div style="width:420px;margin:120px auto;
-        background:#020617;padding:30px;border-radius:18px;color:white;text-align:center;">
+        background:#020617;padding:30px;border-radius:18px;
+        color:white;text-align:center;">
         <h2>🏦 Customer Analysis Platform</h2>
-        <p>ML-Driven Risk & Retention Analysis</p>
+        <p>Customer Intelligence & Risk Prediction</p>
         """,
         unsafe_allow_html=True
     )
 
-    mode = st.radio("Select", ["Login", "Register"])
+    mode = st.radio("Select Option", ["Login", "Register"])
     email = st.text_input("Email")
     password = st.text_input("Password", type="password")
 
@@ -112,15 +112,18 @@ def login_page():
         if st.button("Register"):
             cur.execute("SELECT * FROM users WHERE email=?", (email,))
             if cur.fetchone():
-                st.warning("User already exists. Please login.")
+                st.warning("User already registered. Please login.")
             else:
                 cur.execute("INSERT INTO users VALUES (?,?)", (email, password))
                 conn.commit()
-                st.success("Registration successful")
+                st.success("Registration successful. You can login now.")
 
     if mode == "Login":
         if st.button("Login"):
-            cur.execute("SELECT * FROM users WHERE email=? AND password=?", (email, password))
+            cur.execute(
+                "SELECT * FROM users WHERE email=? AND password=?",
+                (email, password)
+            )
             if cur.fetchone():
                 st.session_state.logged_in = True
                 st.session_state.current_user = email
@@ -131,26 +134,30 @@ def login_page():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =================================================
-# ML MODEL (LOGISTIC REGRESSION)
+# LOGISTIC REGRESSION MODEL
 # =================================================
 @st.cache_data
-def train_model(df):
+def train_logistic_model(df):
     data = df.copy()
 
-    le = LabelEncoder()
+    # Encode categorical columns
+    encoder = LabelEncoder()
     for col in ["job", "marital", "education", "housing", "loan"]:
-        data[col] = le.fit_transform(data[col].astype(str))
+        data[col] = encoder.fit_transform(data[col].astype(str))
 
     X = data[["age", "balance", "campaign"]]
     y = data["y"].map({"yes": 1, "no": 0})
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=42
+    )
+
     model = LogisticRegression(max_iter=1000)
     model.fit(X_train, y_train)
 
     return model
 
-model = train_model(bank_data)
+ml_model = train_logistic_model(bank_data)
 
 # =================================================
 # DASHBOARD
@@ -162,10 +169,10 @@ def dashboard():
 
     menu = st.sidebar.radio(
         "Navigation",
-        ["Dashboard", "Add Customers", "View Customers", "Prediction"]
+        ["Dashboard", "Add Customer", "View Customers", "Prediction"]
     )
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.rerun()
 
@@ -175,23 +182,23 @@ def dashboard():
 
         c1, c2, c3 = st.columns(3)
         c1.markdown(f"<div class='card'><h3>Total Records</h3><h2>{len(bank_data)}</h2></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='card'><h3>Subscribed</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
         c3.markdown(f"<div class='card'><h3>Avg Balance</h3><h2>{bank_data['balance'].mean():.0f}</h2></div>", unsafe_allow_html=True)
 
+        st.plotly_chart(px.pie(bank_data, names="y", title="Subscription Distribution"), use_container_width=True)
         st.plotly_chart(px.histogram(bank_data, x="balance", title="Balance Distribution"), use_container_width=True)
-        st.plotly_chart(px.pie(bank_data, names="y", title="Subscription Rate"), use_container_width=True)
 
         st.subheader("📋 Sample Dataset (First 50 Rows)")
         st.dataframe(bank_data.head(50), use_container_width=True)
 
-    # ---------------- ADD CUSTOMERS ----------------
-    if menu == "Add Customers":
-        st.title("➕ Add Customers")
+    # ---------------- ADD CUSTOMER ----------------
+    if menu == "Add Customer":
+        st.title("➕ Add Customer")
 
-        mode = st.radio("Mode", ["Single", "Upload CSV"])
+        mode = st.radio("Add Mode", ["Single Customer", "Multiple Customers (CSV)"])
 
-        if mode == "Single":
-            name = st.text_input("Name")
+        if mode == "Single Customer":
+            name = st.text_input("Customer Name")
             age = st.number_input("Age", 18, 100)
             balance = st.number_input("Balance")
             campaign = st.slider("Campaign Calls", 1, 10)
@@ -222,19 +229,26 @@ def dashboard():
 
     # ---------------- PREDICTION ----------------
     if menu == "Prediction":
-        st.title("🔮 ML Risk Prediction")
+        st.title("🔮 ML-Based Risk Prediction")
 
         if not st.session_state.customers:
-            st.warning("Add customers first")
-            return
+            st.warning("Please add customers first")
+            st.stop()
 
         df = pd.DataFrame(st.session_state.customers)
         selected = st.selectbox("Select Customer", df["name"])
         c = df[df["name"] == selected].iloc[0]
 
-        prob = model.predict_proba([[c["age"], c["balance"], c["campaign"]]])[0][1]
+        probability = ml_model.predict_proba(
+            [[c["age"], c["balance"], c["campaign"]]]
+        )[0][1]
 
-        st.metric("Subscription Probability", f"{prob*100:.2f}%")
+        st.metric("Subscription Probability", f"{probability*100:.2f}%")
+
+        st.info(
+            "Logistic Regression is used to estimate the probability of a customer "
+            "subscribing based on age, balance, and campaign interactions."
+        )
 
         st.plotly_chart(
             px.scatter(df, x="campaign", y="balance", title="Campaign vs Balance"),
@@ -242,7 +256,7 @@ def dashboard():
         )
 
 # =================================================
-# ROUTER
+# APP ROUTER
 # =================================================
 if st.session_state.logged_in:
     dashboard()
