@@ -3,22 +3,18 @@ import pandas as pd
 import plotly.express as px
 import base64
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import LabelEncoder
-
-# =====================================================
+# =================================================
 # PAGE CONFIG
-# =====================================================
+# =================================================
 st.set_page_config(
     page_title="Customer Analysis Platform",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# =====================================================
-# SESSION STATE
-# =====================================================
+# =================================================
+# SESSION STATE INIT
+# =================================================
 if "users" not in st.session_state:
     st.session_state.users = {}
 
@@ -31,55 +27,35 @@ if "current_user" not in st.session_state:
 if "customers" not in st.session_state:
     st.session_state.customers = []
 
-# =====================================================
-# LOAD BANK DATASET
-# =====================================================
+# =================================================
+# LOAD BANK DATASET (DASHBOARD ANALYTICS)
+# =================================================
 @st.cache_data
 def load_bank_data():
     df = pd.read_csv(
         "data/bank_marketing.csv",
         sep=";",
-        quotechar='"',
         engine="python"
     )
-    df.columns = df.columns.str.strip().str.lower()
+    df.columns = df.columns.str.lower()
     return df
 
 bank_data = load_bank_data()
 
-# =====================================================
-# TRAIN ML MODEL (LOGISTIC REGRESSION)
-# =====================================================
-@st.cache_resource
-def train_model(df):
-    data = df.copy()
-
-    data["y"] = LabelEncoder().fit_transform(data["y"])
-
-    X = data[["balance", "campaign"]]
-    y = data["y"]
-
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X, y)
-
-    return model
-
-model = train_model(bank_data)
-
-# =====================================================
+# =================================================
 # BACKGROUND IMAGE
-# =====================================================
-def get_base64_image(path):
+# =================================================
+def bg_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-bg_img = get_base64_image("images/loginimage.jpg")
+bg = bg_image("images/loginimage.jpg")
 
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-image: url("data:image/jpg;base64,{bg_img}");
+        background-image: url("data:image/jpg;base64,{bg}");
         background-size: cover;
         background-position: center;
     }}
@@ -102,15 +78,15 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# =====================================================
-# LOGIN PAGE
-# =====================================================
+# =================================================
+# LOGIN / REGISTER
+# =================================================
 def login_page():
     st.markdown(
         """
         <div style="width:420px;margin:120px auto;
-        background:#020617;padding:30px;
-        border-radius:18px;color:white;text-align:center;">
+        background:#020617;padding:30px;border-radius:18px;
+        color:white;text-align:center;">
         <h2>🏦 Customer Analysis Platform</h2>
         <p>Customer Intelligence & Risk Prediction</p>
         """,
@@ -137,20 +113,20 @@ def login_page():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
-# =====================================================
-# RISK LABEL FROM MODEL
-# =====================================================
-def risk_from_probability(prob):
-    if prob > 0.7:
+# =================================================
+# RISK LOGIC (REALISTIC)
+# =================================================
+def calculate_risk(balance, campaign):
+    if balance < 0 or campaign >= 6:
         return "High Risk"
-    elif prob > 0.4:
+    elif balance < 5000 and campaign >= 3:
         return "Medium Risk"
     else:
         return "Low Risk"
 
-# =====================================================
+# =================================================
 # DASHBOARD
-# =====================================================
+# =================================================
 def dashboard():
 
     st.sidebar.success("Logged in")
@@ -169,70 +145,84 @@ def dashboard():
     if menu == "Dashboard":
         st.title("📊 Customer Intelligence Dashboard")
 
-        df = bank_data.copy()
-        df["prob"] = model.predict_proba(df[["balance", "campaign"]])[:, 1]
-        df["risk"] = df["prob"].apply(risk_from_probability)
+        bank_data["risk"] = bank_data.apply(
+            lambda x: calculate_risk(x["balance"], x["campaign"]),
+            axis=1
+        )
 
         c1, c2, c3 = st.columns(3)
-        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{len(df)}</h2></div>", unsafe_allow_html=True)
-        c2.markdown(f"<div class='card'><h3>High Risk</h3><h2>{(df['risk']=='High Risk').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
-        c3.markdown(f"<div class='card'><h3>Retention</h3><h2>{(df['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
+        c1.markdown(f"<div class='card'><h3>Total Customers</h3><h2>{len(bank_data)}</h2></div>", unsafe_allow_html=True)
+        c2.markdown(f"<div class='card'><h3>High Risk</h3><h2>{(bank_data['risk']=='High Risk').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='card'><h3>Retention</h3><h2>{(bank_data['y']=='yes').mean()*100:.2f}%</h2></div>", unsafe_allow_html=True)
 
         col1, col2 = st.columns(2)
         with col1:
-            st.plotly_chart(px.pie(df, names="risk", title="Risk Distribution"), use_container_width=True)
+            st.plotly_chart(px.pie(bank_data, names="risk", title="Risk Distribution"), use_container_width=True)
         with col2:
-            st.plotly_chart(px.histogram(df, x="balance", title="Balance Distribution"), use_container_width=True)
+            st.plotly_chart(px.histogram(bank_data, x="balance", title="Balance Distribution"), use_container_width=True)
 
-        st.subheader("📋 Sample Dataset (First 50 Records)")
-        st.dataframe(df.head(50), use_container_width=True)
+        st.subheader("📋 Sample Dataset (Top 100 rows)")
+        st.dataframe(bank_data.head(100), use_container_width=True)
 
     # ================= ADD CUSTOMER =================
     if menu == "Add Customer":
         st.title("➕ Add Customer")
 
-        mode = st.radio("Add Mode", ["Single Customer", "Multiple Customers (CSV)"])
+        mode = st.radio(
+            "Choose add mode",
+            ["Single Customer", "Multiple Customers (CSV)"],
+            horizontal=True
+        )
 
+        st.markdown(f"**Customers stored:** {len(st.session_state.customers)}")
+
+        # ---- SINGLE ----
         if mode == "Single Customer":
-            name = st.text_input("Customer Name")
-            age = st.number_input("Age", 18, 100, 25)
-            balance = st.number_input("Balance", value=0.0)
-            campaign = st.slider("Campaign Calls", 1, 10)
+            with st.form("single_add", clear_on_submit=True):
+                name = st.text_input("Customer Name")
+                age = st.number_input("Age", 18, 100, 25)
+                balance = st.number_input("Balance", value=0.0)
+                campaign = st.slider("Campaign Calls", 1, 10)
+                submit = st.form_submit_button("Add Customer")
 
-            if st.button("Add Customer"):
-                prob = model.predict_proba([[balance, campaign]])[0][1]
-                st.session_state.customers.append({
-                    "name": name,
-                    "age": age,
-                    "balance": balance,
-                    "campaign": campaign,
-                    "risk": risk_from_probability(prob)
-                })
-                st.success("Customer added successfully")
+                if submit:
+                    st.session_state.customers.append({
+                        "name": name,
+                        "age": age,
+                        "balance": balance,
+                        "campaign": campaign,
+                        "risk": calculate_risk(balance, campaign)
+                    })
+                    st.success("Customer added")
 
-        else:
+        # ---- MULTIPLE ----
+        if mode == "Multiple Customers (CSV)":
             file = st.file_uploader("Upload CSV (name, age, balance, campaign)", type=["csv"])
             if file:
                 df = pd.read_csv(file)
                 df.columns = df.columns.str.lower()
 
-                for _, r in df.iterrows():
-                    prob = model.predict_proba([[r["balance"], r["campaign"]]])[0][1]
-                    st.session_state.customers.append({
-                        "name": r["name"],
-                        "age": r["age"],
-                        "balance": r["balance"],
-                        "campaign": r["campaign"],
-                        "risk": risk_from_probability(prob)
-                    })
-                st.success(f"{len(df)} customers added successfully")
+                if st.button("Add All Customers"):
+                    for _, r in df.iterrows():
+                        st.session_state.customers.append({
+                            "name": r["name"],
+                            "age": r["age"],
+                            "balance": r["balance"],
+                            "campaign": r["campaign"],
+                            "risk": calculate_risk(r["balance"], r["campaign"])
+                        })
+                    st.success(f"{len(df)} customers added")
+
+        if st.session_state.customers:
+            st.subheader("Live Preview")
+            st.dataframe(pd.DataFrame(st.session_state.customers), use_container_width=True)
 
     # ================= VIEW & DELETE =================
     if menu == "View Customers":
         st.title("👥 View & Delete Customers")
 
         if not st.session_state.customers:
-            st.info("No customers added yet")
+            st.info("No customers available")
         else:
             df = pd.DataFrame(st.session_state.customers)
             st.dataframe(df, use_container_width=True)
@@ -260,30 +250,29 @@ def dashboard():
 
         if not st.session_state.customers:
             st.warning("Please add customers first")
-            return
+            st.stop()
 
         df = pd.DataFrame(st.session_state.customers)
         name = st.selectbox("Select Customer", df["name"])
-        c = df[df["name"] == name].iloc[0]
+        cust = df[df["name"] == name].iloc[0]
 
         st.markdown(
             f"""
             <div style="background:#020617;padding:24px;border-radius:16px;color:white;">
-            <h3>Customer Details</h3>
-            <b>Name:</b> {c['name']}<br>
-            <b>Age:</b> {c['age']}<br>
-            <b>Balance:</b> {c['balance']}<br>
-            <b>Campaign Calls:</b> {c['campaign']}<br>
-            <b>Predicted Risk:</b>
-            <span style="font-size:22px;font-weight:800;">{c['risk']}</span>
+            <h3>Customer Profile</h3>
+            <b>Name:</b> {cust['name']}<br>
+            <b>Age:</b> {cust['age']}<br>
+            <b>Balance:</b> {cust['balance']}<br>
+            <b>Campaign Calls:</b> {cust['campaign']}<br>
+            <b>Risk:</b> <span style="font-size:22px;font-weight:800;">{cust['risk']}</span>
             </div>
             """,
             unsafe_allow_html=True
         )
 
-# =====================================================
-# ROUTER
-# =====================================================
+# =================================================
+# APP ROUTER
+# =================================================
 if st.session_state.logged_in:
     dashboard()
 else:
