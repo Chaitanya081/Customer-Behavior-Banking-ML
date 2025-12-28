@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import base64
-from sklearn.linear_model import LogisticRegression
-from sklearn.model_selection import train_test_split
 
 # =================================================
 # PAGE CONFIG
@@ -15,7 +13,7 @@ st.set_page_config(
 )
 
 # =================================================
-# SESSION STATE
+# SESSION STATE INIT
 # =================================================
 if "users" not in st.session_state:
     st.session_state.users = {}
@@ -29,11 +27,8 @@ if "current_user" not in st.session_state:
 if "customers" not in st.session_state:
     st.session_state.customers = []
 
-if "model" not in st.session_state:
-    st.session_state.model = None
-
 # =================================================
-# LOAD DATASET
+# LOAD BANK DATA (DASHBOARD ONLY)
 # =================================================
 @st.cache_data
 def load_bank_data():
@@ -44,37 +39,19 @@ def load_bank_data():
 bank_data = load_bank_data()
 
 # =================================================
-# TRAIN LOGISTIC REGRESSION
-# =================================================
-def train_model(df):
-    X = df[["balance", "campaign"]]
-    y = (df["y"] == "yes").astype(int)
-
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
-
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_train, y_train)
-    return model
-
-if st.session_state.model is None:
-    st.session_state.model = train_model(bank_data)
-
-# =================================================
 # BACKGROUND IMAGE
 # =================================================
 def get_base64_image(path):
     with open(path, "rb") as f:
         return base64.b64encode(f.read()).decode()
 
-bg = get_base64_image("images/loginimage.jpg")
+bg_img = get_base64_image("images/loginimage.jpg")
 
 st.markdown(
     f"""
     <style>
     .stApp {{
-        background-image: url("data:image/jpg;base64,{bg}");
+        background-image: url("data:image/jpg;base64,{bg_img}");
         background-size: cover;
     }}
     .stApp::before {{
@@ -118,7 +95,7 @@ def login_page():
     if option == "Register":
         if st.button("Register"):
             if email in st.session_state.users:
-                st.warning("User already exists")
+                st.warning("User already registered. Please login.")
             else:
                 st.session_state.users[email] = password
                 st.success("Registered successfully")
@@ -135,14 +112,12 @@ def login_page():
     st.markdown("</div>", unsafe_allow_html=True)
 
 # =================================================
-# RISK PREDICTION USING ML
+# RISK LOGIC (BUSINESS RULE)
 # =================================================
-def predict_risk(balance, campaign):
-    prob = st.session_state.model.predict_proba([[balance, campaign]])[0][1]
-
-    if prob > 0.6:
+def calculate_risk(balance, campaign):
+    if balance < 0 or campaign >= 6:
         return "High Risk"
-    elif prob > 0.3:
+    elif balance < 5000 and campaign >= 3:
         return "Medium Risk"
     else:
         return "Low Risk"
@@ -151,7 +126,6 @@ def predict_risk(balance, campaign):
 # DASHBOARD
 # =================================================
 def dashboard():
-
     st.sidebar.success("Logged in")
     st.sidebar.write(st.session_state.current_user)
 
@@ -160,7 +134,7 @@ def dashboard():
         ["Dashboard", "Add Customer", "View Customers", "Prediction"]
     )
 
-    if st.sidebar.button("Logout"):
+    if st.sidebar.button("🚪 Logout"):
         st.session_state.logged_in = False
         st.rerun()
 
@@ -169,8 +143,7 @@ def dashboard():
         st.title("📊 Customer Intelligence Dashboard")
 
         bank_data["risk"] = bank_data.apply(
-            lambda x: predict_risk(x["balance"], x["campaign"]),
-            axis=1
+            lambda x: calculate_risk(x["balance"], x["campaign"]), axis=1
         )
 
         c1, c2, c3 = st.columns(3)
@@ -182,7 +155,7 @@ def dashboard():
         col1.plotly_chart(px.pie(bank_data, names="risk", title="Risk Distribution"), use_container_width=True)
         col2.plotly_chart(px.histogram(bank_data, x="balance", title="Balance Distribution"), use_container_width=True)
 
-        st.subheader("📋 Sample Dataset (50 rows)")
+        st.subheader("📋 Sample Dataset (First 50 Rows)")
         st.dataframe(bank_data.head(50), use_container_width=True)
 
     # ---------------- ADD CUSTOMER ----------------
@@ -201,44 +174,51 @@ def dashboard():
                     "name": name,
                     "balance": balance,
                     "campaign": campaign,
-                    "risk": predict_risk(balance, campaign)
+                    "risk": calculate_risk(balance, campaign)
                 })
                 st.success("Customer added")
 
         else:
-            file = st.file_uploader("Upload CSV (name,balance,campaign)", type=["csv"])
+            file = st.file_uploader("Upload CSV (name, balance, campaign)", type=["csv"])
             if file:
                 df = pd.read_csv(file)
+                df.columns = df.columns.str.lower()
+
                 for _, r in df.iterrows():
                     st.session_state.customers.append({
                         "name": r["name"],
                         "balance": r["balance"],
                         "campaign": r["campaign"],
-                        "risk": predict_risk(r["balance"], r["campaign"])
+                        "risk": calculate_risk(r["balance"], r["campaign"])
                     })
+
                 st.success(f"{len(df)} customers added")
 
     # ---------------- VIEW & DELETE ----------------
     if menu == "View Customers":
         st.title("👥 Customers")
 
-        if not st.session_state.customers:
+        if len(st.session_state.customers) == 0:
             st.info("No customers added")
         else:
-            df = pd.DataFrame(st.session_state.customers)
+            df = pd.DataFrame(st.session_state.customers).reset_index(drop=True)
             st.dataframe(df, use_container_width=True)
 
-            selected = st.multiselect("Select customers to delete", df["name"].tolist())
+            delete_idx = st.multiselect(
+                "Select customers to delete",
+                df.index,
+                format_func=lambda x: df.loc[x, "name"]
+            )
 
-            col1, col2 = st.columns(2)
-            if col1.button("Delete Selected"):
+            if st.button("Delete Selected"):
                 st.session_state.customers = [
-                    c for c in st.session_state.customers if c["name"] not in selected
+                    c for i, c in enumerate(st.session_state.customers)
+                    if i not in delete_idx
                 ]
-                st.success("Deleted selected customers")
+                st.success("Deleted successfully")
                 st.rerun()
 
-            if col2.button("Delete ALL"):
+            if st.button("Delete ALL"):
                 st.session_state.customers.clear()
                 st.warning("All customers deleted")
                 st.rerun()
@@ -247,13 +227,19 @@ def dashboard():
     if menu == "Prediction":
         st.title("🔮 ML-Based Risk Prediction")
 
-        if not st.session_state.customers:
-            st.warning("Add customers first")
-            return
+        if len(st.session_state.customers) == 0:
+            st.warning("Please add customers first")
+            st.stop()
 
-        df = pd.DataFrame(st.session_state.customers)
-        selected = st.selectbox("Select Customer", df["name"])
-        cust = df[df["name"] == selected].iloc[0]
+        df = pd.DataFrame(st.session_state.customers).reset_index(drop=True)
+
+        idx = st.selectbox(
+            "Select Customer",
+            df.index,
+            format_func=lambda x: df.loc[x, "name"]
+        )
+
+        cust = df.loc[idx]
 
         st.markdown(
             f"""
@@ -267,11 +253,15 @@ def dashboard():
             unsafe_allow_html=True
         )
 
-        st.plotly_chart(px.pie(df, names="risk", title="Customer Risk Distribution"), use_container_width=True)
-        st.plotly_chart(px.scatter(df, x="campaign", y="balance", color="risk", title="Campaign vs Balance"), use_container_width=True)
+        st.plotly_chart(px.pie(df, names="risk", title="Risk Distribution"), use_container_width=True)
+        st.plotly_chart(
+            px.scatter(df, x="campaign", y="balance", color="risk",
+                       hover_data=["name"], title="Campaign vs Balance"),
+            use_container_width=True
+        )
 
 # =================================================
-# APP ROUTER
+# ROUTER
 # =================================================
 if st.session_state.logged_in:
     dashboard()
